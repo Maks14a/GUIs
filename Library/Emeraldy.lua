@@ -17,6 +17,7 @@ function Library:CreateWindow(hubTitle)
     local C_CARD = Color3.fromRGB(24, 27, 34)
     local C_INPUT = Color3.fromRGB(33, 37, 47)
     local C_ACCENT = Color3.fromRGB(16, 185, 129)
+    local C_RED = Color3.fromRGB(220, 38, 38)
     local C_OFF = Color3.fromRGB(42, 47, 60)
     local C_TEXT = Color3.fromRGB(240, 242, 245)
     local C_BORDER = Color3.fromRGB(45, 52, 65)
@@ -89,14 +90,21 @@ function Library:CreateWindow(hubTitle)
     local Title = Instance.new("TextLabel", Header)
     Title.BackgroundTransparency, Title.Position, Title.Size, Title.Font, Title.Text, Title.RichText, Title.TextColor3, Title.TextSize, Title.TextXAlignment = 1, UDim2.new(0, 16, 0, 0), UDim2.new(1, -32, 1, 0), Enum.Font.GothamBold, hubTitle or "OWNER HUB", true, C_TEXT, 16, Enum.TextXAlignment.Left
 
-    local Container = Instance.new("Frame", MainFrame)
+    -- Контейнер со скроллингом
+    local Container = Instance.new("ScrollingFrame", MainFrame)
     Container.BackgroundTransparency, Container.Position, Container.Size = 1, UDim2.new(0, 12, 0, 50), UDim2.new(1, -24, 1, -55)
+    Container.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Container.ScrollBarThickness = 4
+    Container.ScrollBarImageColor3 = C_ACCENT
+    Container.BorderSizePixel = 0
+
     local UIList = Instance.new("UIListLayout", Container)
     UIList.SortOrder, UIList.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 8)
 
     local WindowObj = {}
 
-    -- Зеленый текст / Заголовок
+    -- Заголовок / Метка
     function WindowObj:AddLabel(text, color)
         local Frame = Instance.new("Frame", Container)
         Frame.BackgroundTransparency, Frame.Size = 1, UDim2.new(1, 0, 0, 20)
@@ -105,6 +113,7 @@ function Library:CreateWindow(hubTitle)
         Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.RichText, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 4, 0, 0), UDim2.new(1, -8, 1, 0), Enum.Font.GothamBold, text, true, color or C_ACCENT, 13, Enum.TextXAlignment.Left
     end
 
+    -- Стандартный тогглер со переключателем справа
     function WindowObj:AddToggle(name, defaultState, callback)
         local Frame = Instance.new("Frame", Container)
         Frame.BackgroundColor3, Frame.Size = C_CARD, UDim2.new(1, 0, 0, 38)
@@ -134,6 +143,37 @@ function Library:CreateWindow(hubTitle)
         end)
     end
 
+    -- КНОПКА-ТОГГЛЕР (Красная = OFF, Зелёная = ON)
+    function WindowObj:AddButtonToggle(name, defaultState, callback)
+        local Button = Instance.new("TextButton", Container)
+        Button.Name = name .. "_ButtonToggle"
+        Button.Size = UDim2.new(1, 0, 0, 38)
+        Button.BackgroundColor3 = defaultState and C_ACCENT or C_RED
+        Button.AutoButtonColor = false
+        Button.Font = Enum.Font.GothamBold
+        Button.Text = name
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextSize = 13
+
+        Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
+        local Stroke = Instance.new("UIStroke", Button)
+        Stroke.Color = defaultState and Color3.fromRGB(10, 140, 95) or Color3.fromRGB(160, 20, 20)
+        Stroke.Thickness = 1.2
+
+        local state = defaultState
+        Button.MouseButton1Click:Connect(function()
+            state = not state
+            TS:Create(Button, TweenInfo.new(0.2), {
+                BackgroundColor3 = state and C_ACCENT or C_RED
+            }):Play()
+            TS:Create(Stroke, TweenInfo.new(0.2), {
+                Color = state and Color3.fromRGB(10, 140, 95) or Color3.fromRGB(160, 20, 20)
+            }):Play()
+            if callback then callback(state) end
+        end)
+    end
+
+    -- Поле ввода
     function WindowObj:AddInput(labelText, defaultText, callback)
         local Frame = Instance.new("Frame", Container)
         Frame.BackgroundColor3, Frame.Size = C_CARD, UDim2.new(1, 0, 0, 38)
