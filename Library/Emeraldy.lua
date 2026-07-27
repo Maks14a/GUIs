@@ -1,5 +1,5 @@
 -- ========================================================
---             OWNER HUB GUI LIBRARY v3.4 (EMERALD)
+--             OWNER HUB GUI LIBRARY v3.5 (EMERALD)
 -- ========================================================
 local Library = {}
 
@@ -183,6 +183,81 @@ function Library:CreateWindow(hubTitle)
         Box.BackgroundColor3, Box.Position, Box.Size, Box.Font, Box.Text, Box.TextColor3, Box.TextSize, Box.ClearTextOnFocus = C_INPUT, UDim2.new(0.5, 0, 0.5, -11), UDim2.new(0.5, -10, 0, 22), Enum.Font.GothamBold, defaultText, C_TEXT, 12, false
         Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 6)
         Box.FocusLost:Connect(function() if callback then callback(Box.Text) end end)
+    end
+
+    -- ОДИНОЧНЫЙ ДРОПДАУН (SINGLE-SELECT)
+    function WindowObj:AddDropdown(name, list, default, callback)
+        list = list or {}
+        local selected = default or list[1] or "Ничего"
+
+        local Frame = Instance.new("Frame", Container)
+        Frame.BackgroundColor3, Frame.Size = C_CARD, UDim2.new(1, 0, 0, 38)
+        Frame.ClipsDescendants = true
+        Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+        local Stroke = Instance.new("UIStroke", Frame)
+        Stroke.Color = C_BORDER
+
+        local Label = Instance.new("TextLabel", Frame)
+        Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 12, 0, 0), UDim2.new(0.45, 0, 0, 38), Enum.Font.GothamMedium, name, C_TEXT, 13, Enum.TextXAlignment.Left
+
+        local DropBtn = Instance.new("TextButton", Frame)
+        DropBtn.BackgroundColor3, DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextColor3, DropBtn.TextSize = C_INPUT, UDim2.new(0.45, 0, 0, 8), UDim2.new(0.55, -8, 0, 22), Enum.Font.GothamBold, tostring(selected) .. "  ▼", C_TEXT, 11
+        DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
+        Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
+
+        local DropHolder = Instance.new("ScrollingFrame", Frame)
+        DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 8, 0, 38), UDim2.new(1, -16, 0, 0)
+        DropHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
+        DropHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        DropHolder.ScrollBarThickness = 3
+        DropHolder.ScrollBarImageColor3 = C_ACCENT
+        DropHolder.BorderSizePixel = 0
+
+        local ListLayout = Instance.new("UIListLayout", DropHolder)
+        ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
+
+        local isOpen = false
+        local function toggleDrop()
+            isOpen = not isOpen
+            local targetHeight = math.min(#list * 26, 120)
+            TS:Create(Frame, TweenInfo.new(0.15), { Size = UDim2.new(1, 0, 0, isOpen and (44 + targetHeight) or 38) }):Play()
+            TS:Create(DropHolder, TweenInfo.new(0.15), { Size = UDim2.new(1, -16, 0, isOpen and targetHeight or 0) }):Play()
+        end
+
+        DropBtn.MouseButton1Click:Connect(toggleDrop)
+
+        local function buildList(newList)
+            list = newList or list
+            for _, c in ipairs(DropHolder:GetChildren()) do
+                if c:IsA("TextButton") then c:Destroy() end
+            end
+            for _, option in ipairs(list) do
+                local Btn = Instance.new("TextButton", DropHolder)
+                Btn.BackgroundColor3, Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = C_INPUT, UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), C_TEXT, 11
+                Btn.TextTruncate = Enum.TextTruncate.AtEnd
+                Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+
+                Btn.MouseButton1Click:Connect(function()
+                    selected = option
+                    DropBtn.Text = tostring(selected) .. "  ▼"
+                    toggleDrop()
+                    if callback then callback(selected) end
+                end)
+            end
+        end
+
+        buildList(list)
+
+        local DropObj = {}
+        function DropObj:Refresh(newList, newDefault)
+            buildList(newList)
+            if newDefault then
+                selected = newDefault
+                DropBtn.Text = tostring(selected) .. "  ▼"
+            end
+        end
+
+        return DropObj
     end
 
     -- МНОГОПОЛЬЗОВАТЕЛЬСКИЙ ДРОПДАУН (МУЛЬТИ-ВЫБОР)
