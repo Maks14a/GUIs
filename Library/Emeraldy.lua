@@ -1,5 +1,5 @@
 -- ========================================================
---                  OWNER HUB GUI LIBRARY
+--             OWNER HUB GUI LIBRARY v3.1 (SMOOTH)
 -- ========================================================
 local Library = {}
 
@@ -24,12 +24,14 @@ function Library:CreateWindow(hubTitle)
     local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"))
     ScreenGui.Name, ScreenGui.ResetOnSpawn = "OwnerHub_Core", false
 
-    local MainFrame = Instance.new("Frame", ScreenGui)
+    -- CanvasGroup дает идеальную плавность прозрачности всей GUI
+    local MainFrame = Instance.new("CanvasGroup", ScreenGui)
     MainFrame.Name = "MainFrame"
     MainFrame.BackgroundColor3 = C_BG
     MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
     MainFrame.Size = UDim2.new(0, 270, 0, 440)
     MainFrame.ClipsDescendants = true
+    MainFrame.GroupTransparency = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
 
     local MainStroke = Instance.new("UIStroke", MainFrame)
@@ -56,18 +58,28 @@ function Library:CreateWindow(hubTitle)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- Скрытие на RightControl
-    local guiVisible = true
+    -- Сочная анимация скрытия/открытия на RightControl
+    local guiVisible, isAnimating = true, false
     UIS.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Enum.KeyCode.RightControl then
+            if isAnimating then return end
             guiVisible = not guiVisible
+            isAnimating = true
+
             if guiVisible then
                 MainFrame.Visible = true
-                TS:Create(UIScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
-            else
-                local t = TS:Create(UIScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0})
+                TS:Create(UIScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+                local t = TS:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {GroupTransparency = 0})
                 t:Play()
-                t.Completed:Connect(function() if not guiVisible then MainFrame.Visible = false end end)
+                t.Completed:Connect(function() isAnimating = false end)
+            else
+                TS:Create(UIScale, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Scale = 0.85}):Play()
+                local t = TS:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {GroupTransparency = 1})
+                t:Play()
+                t.Completed:Connect(function()
+                    if not guiVisible then MainFrame.Visible = false end
+                    isAnimating = false
+                end)
             end
         end
     end)
@@ -85,7 +97,6 @@ function Library:CreateWindow(hubTitle)
 
     local WindowObj = {}
 
-    -- Создание переключателя (Toggle)
     function WindowObj:AddToggle(name, defaultState, callback)
         local Frame = Instance.new("Frame", Container)
         Frame.BackgroundColor3, Frame.Size = C_CARD, UDim2.new(1, 0, 0, 38)
@@ -115,7 +126,6 @@ function Library:CreateWindow(hubTitle)
         end)
     end
 
-    -- Создание текстового поля (Input)
     function WindowObj:AddInput(labelText, defaultText, callback)
         local Frame = Instance.new("Frame", Container)
         Frame.BackgroundColor3, Frame.Size = C_CARD, UDim2.new(1, 0, 0, 38)
