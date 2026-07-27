@@ -1,5 +1,5 @@
 -- ========================================================
---             OWNER HUB GUI LIBRARY v3.3 (EMERALD)
+--             OWNER HUB GUI LIBRARY v3.4 (EMERALD)
 -- ========================================================
 local Library = {}
 
@@ -29,7 +29,7 @@ function Library:CreateWindow(hubTitle)
     MainFrame.Name = "MainFrame"
     MainFrame.BackgroundColor3 = C_BG
     MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
-    MainFrame.Size = UDim2.new(0, 270, 0, 500)
+    MainFrame.Size = UDim2.new(0, 270, 0, 520)
     MainFrame.ClipsDescendants = true
     MainFrame.GroupTransparency = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
@@ -90,7 +90,7 @@ function Library:CreateWindow(hubTitle)
     local Title = Instance.new("TextLabel", Header)
     Title.BackgroundTransparency, Title.Position, Title.Size, Title.Font, Title.Text, Title.RichText, Title.TextColor3, Title.TextSize, Title.TextXAlignment = 1, UDim2.new(0, 16, 0, 0), UDim2.new(1, -32, 1, 0), Enum.Font.GothamBold, hubTitle or "OWNER HUB", true, C_TEXT, 16, Enum.TextXAlignment.Left
 
-    -- Контейнер со скроллингом
+    -- Контейнер
     local Container = Instance.new("ScrollingFrame", MainFrame)
     Container.BackgroundTransparency, Container.Position, Container.Size = 1, UDim2.new(0, 12, 0, 50), UDim2.new(1, -24, 1, -55)
     Container.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -185,10 +185,10 @@ function Library:CreateWindow(hubTitle)
         Box.FocusLost:Connect(function() if callback then callback(Box.Text) end end)
     end
 
-    -- ДРОПДАУН (ВЫПАДАЮЩИЙ СПИСОК)
-    function WindowObj:AddDropdown(name, list, default, callback)
+    -- МНОГОПОЛЬЗОВАТЕЛЬСКИЙ ДРОПДАУН (МУЛЬТИ-ВЫБОР)
+    function WindowObj:AddMultiDropdown(name, list, callback)
         list = list or {}
-        local selected = default or list[1] or "Ничего"
+        local selectedMap = {}
 
         local Frame = Instance.new("Frame", Container)
         Frame.BackgroundColor3, Frame.Size = C_CARD, UDim2.new(1, 0, 0, 38)
@@ -201,7 +201,7 @@ function Library:CreateWindow(hubTitle)
         Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 12, 0, 0), UDim2.new(0.45, 0, 0, 38), Enum.Font.GothamMedium, name, C_TEXT, 13, Enum.TextXAlignment.Left
 
         local DropBtn = Instance.new("TextButton", Frame)
-        DropBtn.BackgroundColor3, DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextColor3, DropBtn.TextSize = C_INPUT, UDim2.new(0.45, 0, 0, 8), UDim2.new(0.55, -8, 0, 22), Enum.Font.GothamBold, tostring(selected) .. "  ▼", C_TEXT, 11
+        DropBtn.BackgroundColor3, DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextColor3, DropBtn.TextSize = C_INPUT, UDim2.new(0.45, 0, 0, 8), UDim2.new(0.55, -8, 0, 22), Enum.Font.GothamBold, "Выбрано: 0  ▼", C_TEXT, 11
         DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
         Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
 
@@ -226,7 +226,11 @@ function Library:CreateWindow(hubTitle)
 
         DropBtn.MouseButton1Click:Connect(toggleDrop)
 
-        local DropObj = {}
+        local function updateTitle()
+            local count = 0
+            for _ in pairs(selectedMap) do count = count + 1 end
+            DropBtn.Text = "Выбрано: " .. tostring(count) .. "  ▼"
+        end
 
         local function buildList(newList)
             list = newList or list
@@ -234,31 +238,35 @@ function Library:CreateWindow(hubTitle)
                 if c:IsA("TextButton") then c:Destroy() end
             end
             for _, option in ipairs(list) do
+                local isSelected = selectedMap[option] or false
                 local Btn = Instance.new("TextButton", DropHolder)
-                Btn.BackgroundColor3, Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = C_INPUT, UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), C_TEXT, 11
+                Btn.BackgroundColor3 = isSelected and C_ACCENT or C_INPUT
+                Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, (isSelected and "[✓] " or "[ ] ") .. tostring(option), C_TEXT, 11
                 Btn.TextTruncate = Enum.TextTruncate.AtEnd
                 Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
 
                 Btn.MouseButton1Click:Connect(function()
-                    selected = option
-                    DropBtn.Text = tostring(selected) .. "  ▼"
-                    toggleDrop()
-                    if callback then callback(selected) end
+                    if selectedMap[option] then
+                        selectedMap[option] = nil
+                        Btn.BackgroundColor3 = C_INPUT
+                        Btn.Text = "[ ] " .. tostring(option)
+                    else
+                        selectedMap[option] = true
+                        Btn.BackgroundColor3 = C_ACCENT
+                        Btn.Text = "[✓] " .. tostring(option)
+                    end
+                    updateTitle()
+                    if callback then callback(selectedMap) end
                 end)
             end
+            updateTitle()
         end
 
         buildList(list)
 
-        function DropObj:Refresh(newList, newDefault)
+        local DropObj = {}
+        function DropObj:Refresh(newList)
             buildList(newList)
-            if newDefault then
-                selected = newDefault
-                DropBtn.Text = tostring(selected) .. "  ▼"
-            elseif not table.find(newList, selected) then
-                selected = newList[1] or "Ничего"
-                DropBtn.Text = tostring(selected) .. "  ▼"
-            end
         end
 
         return DropObj
