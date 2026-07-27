@@ -1,5 +1,5 @@
 -- ========================================================
---             OWNER HUB GUI LIBRARY v3.1 (SMOOTH)
+--             OWNER HUB GUI LIBRARY v3.2 (EMERALD)
 -- ========================================================
 local Library = {}
 
@@ -24,12 +24,11 @@ function Library:CreateWindow(hubTitle)
     local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"))
     ScreenGui.Name, ScreenGui.ResetOnSpawn = "OwnerHub_Core", false
 
-    -- CanvasGroup дает идеальную плавность прозрачности всей GUI
     local MainFrame = Instance.new("CanvasGroup", ScreenGui)
     MainFrame.Name = "MainFrame"
     MainFrame.BackgroundColor3 = C_BG
     MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
-    MainFrame.Size = UDim2.new(0, 270, 0, 440)
+    MainFrame.Size = UDim2.new(0, 270, 0, 480)
     MainFrame.ClipsDescendants = true
     MainFrame.GroupTransparency = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
@@ -58,7 +57,7 @@ function Library:CreateWindow(hubTitle)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- Сочная анимация скрытия/открытия на RightControl
+    -- Анимация скрытия/открытия (RightControl)
     local guiVisible, isAnimating = true, false
     UIS.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Enum.KeyCode.RightControl then
@@ -96,6 +95,15 @@ function Library:CreateWindow(hubTitle)
     UIList.SortOrder, UIList.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 8)
 
     local WindowObj = {}
+
+    -- Зеленый текст / Заголовок
+    function WindowObj:AddLabel(text, color)
+        local Frame = Instance.new("Frame", Container)
+        Frame.BackgroundTransparency, Frame.Size = 1, UDim2.new(1, 0, 0, 20)
+
+        local Label = Instance.new("TextLabel", Frame)
+        Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.RichText, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 4, 0, 0), UDim2.new(1, -8, 1, 0), Enum.Font.GothamBold, text, true, color or C_ACCENT, 13, Enum.TextXAlignment.Left
+    end
 
     function WindowObj:AddToggle(name, defaultState, callback)
         local Frame = Instance.new("Frame", Container)
