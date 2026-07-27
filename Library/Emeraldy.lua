@@ -1,5 +1,5 @@
 -- ========================================================
---             OWNER HUB GUI LIBRARY v3.5 (EMERALD)
+--             OWNER HUB GUI LIBRARY v3.6 (EMERALD)
 -- ========================================================
 local Library = {}
 
@@ -111,6 +111,32 @@ function Library:CreateWindow(hubTitle)
 
         local Label = Instance.new("TextLabel", Frame)
         Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.RichText, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 4, 0, 0), UDim2.new(1, -8, 1, 0), Enum.Font.GothamBold, text, true, color or C_ACCENT, 13, Enum.TextXAlignment.Left
+    end
+
+    -- Обычная Кнопка
+    function WindowObj:AddButton(name, callback)
+        local Button = Instance.new("TextButton", Container)
+        Button.Name = name .. "_Button"
+        Button.Size = UDim2.new(1, 0, 0, 38)
+        Button.BackgroundColor3 = C_CARD
+        Button.AutoButtonColor = false
+        Button.Font = Enum.Font.GothamBold
+        Button.Text = name
+        Button.TextColor3 = C_TEXT
+        Button.TextSize = 13
+
+        Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
+        local Stroke = Instance.new("UIStroke", Button)
+        Stroke.Color = C_BORDER
+        Stroke.Thickness = 1
+
+        Button.MouseButton1Click:Connect(function()
+            TS:Create(Button, TweenInfo.new(0.08), {BackgroundColor3 = C_ACCENT}):Play()
+            task.delay(0.1, function()
+                TS:Create(Button, TweenInfo.new(0.15), {BackgroundColor3 = C_CARD}):Play()
+            end)
+            if callback then callback() end
+        end)
     end
 
     -- Переключатель (Toggle)
