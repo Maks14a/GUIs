@@ -286,7 +286,7 @@ function Library:CreateWindow(hubTitle)
         return DropObj
     end
 
-    -- МНОГОПОЛЬЗОВАТЕЛЬСКИЙ ДРОПДАУН (МУЛЬТИ-ВЫБОР)
+    -- МНОГОПОЛЬЗОВАТЕЛЬСКИЙ ДРОПДАУН (МУЛЬТИ-ВЫБОР) — БЕЗ ГАЛОЧЕК!
     function WindowObj:AddMultiDropdown(name, list, callback)
         list = list or {}
         local selectedMap = {}
@@ -342,7 +342,7 @@ function Library:CreateWindow(hubTitle)
                 local isSelected = selectedMap[option] or false
                 local Btn = Instance.new("TextButton", DropHolder)
                 Btn.BackgroundColor3 = isSelected and C_ACCENT or C_INPUT
-                Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, (isSelected and "[✓] " or "[ ] ") .. tostring(option), C_TEXT, 11
+                Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), C_TEXT, 11
                 Btn.TextTruncate = Enum.TextTruncate.AtEnd
                 Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
 
@@ -350,11 +350,9 @@ function Library:CreateWindow(hubTitle)
                     if selectedMap[option] then
                         selectedMap[option] = nil
                         Btn.BackgroundColor3 = C_INPUT
-                        Btn.Text = "[ ] " .. tostring(option)
                     else
                         selectedMap[option] = true
                         Btn.BackgroundColor3 = C_ACCENT
-                        Btn.Text = "[✓] " .. tostring(option)
                     end
                     updateTitle()
                     if callback then callback(selectedMap) end
