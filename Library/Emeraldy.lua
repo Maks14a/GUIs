@@ -8,6 +8,68 @@ local TS = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
+-- Функция красивого уведомления сверху по центру
+function Library:Notify(titleText, msgText, duration)
+    duration = duration or 3.5
+    local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+    
+    local NotifGui = CoreGui:FindFirstChild("OwnerHub_Notif")
+    if not NotifGui then
+        NotifGui = Instance.new("ScreenGui")
+        NotifGui.Name = "OwnerHub_Notif"
+        NotifGui.ResetOnSpawn = false
+        NotifGui.Parent = CoreGui
+    end
+
+    local Card = Instance.new("Frame", NotifGui)
+    Card.Size = UDim2.new(0, 300, 0, 60)
+    Card.Position = UDim2.new(0.5, -150, 0, -80) -- Старт за пределами экрана
+    Card.BackgroundColor3 = Color3.fromRGB(24, 27, 34)
+    Card.ClipsDescendants = true
+
+    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 12)
+
+    local Stroke = Instance.new("UIStroke", Card)
+    Stroke.Color = Color3.fromRGB(16, 185, 129)
+    Stroke.Thickness = 1.5
+
+    local Title = Instance.new("TextLabel", Card)
+    Title.Size = UDim2.new(1, -20, 0, 24)
+    Title.Position = UDim2.new(0, 10, 0, 8)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = titleText or "УВЕДОМЛЕНИЕ"
+    Title.TextColor3 = Color3.fromRGB(16, 185, 129)
+    Title.TextSize = 14
+    Title.TextXAlignment = Enum.TextXAlignment.Center
+
+    local Msg = Instance.new("TextLabel", Card)
+    Msg.Size = UDim2.new(1, -20, 0, 20)
+    Msg.Position = UDim2.new(0, 10, 0, 30)
+    Msg.BackgroundTransparency = 1
+    Msg.Font = Enum.Font.GothamMedium
+    Msg.Text = msgText or ""
+    Msg.TextColor3 = Color3.fromRGB(240, 242, 245)
+    Msg.TextSize = 12
+    Msg.TextXAlignment = Enum.TextXAlignment.Center
+
+    -- Плавное появление сверху
+    TS:Create(Card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -150, 0, 20)
+    }):Play()
+
+    -- Плавное исчезновение через duration секунд
+    task.delay(duration, function()
+        local tweenOut = TS:Create(Card, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, -150, 0, -80)
+        })
+        tweenOut:Play()
+        tweenOut.Completed:Connect(function()
+            Card:Destroy()
+        end)
+    end)
+end
+
 function Library:CreateWindow(hubTitle)
     if game:GetService("CoreGui"):FindFirstChild("OwnerHub_Core") then
         game:GetService("CoreGui").OwnerHub_Core:Destroy()
@@ -29,7 +91,7 @@ function Library:CreateWindow(hubTitle)
     MainFrame.Name = "MainFrame"
     MainFrame.BackgroundColor3 = C_BG
     MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
-    MainFrame.Size = UDim2.new(0, 270, 0, 520)
+    MainFrame.Size = UDim2.new(0, 280, 0, 520) -- Увеличено на 10px по ширине
     MainFrame.ClipsDescendants = true
     MainFrame.GroupTransparency = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
@@ -169,32 +231,6 @@ function Library:CreateWindow(hubTitle)
         end)
     end
 
-    -- КНОПКА-ТОГГЛЕР
-    function WindowObj:AddButtonToggle(name, defaultState, callback)
-        local Button = Instance.new("TextButton", Container)
-        Button.Name = name .. "_ButtonToggle"
-        Button.Size = UDim2.new(1, 0, 0, 38)
-        Button.BackgroundColor3 = defaultState and C_ACCENT or C_RED
-        Button.AutoButtonColor = false
-        Button.Font = Enum.Font.GothamBold
-        Button.Text = name
-        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.TextSize = 13
-
-        Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
-        local Stroke = Instance.new("UIStroke", Button)
-        Stroke.Color = defaultState and Color3.fromRGB(10, 140, 95) or Color3.fromRGB(160, 20, 20)
-        Stroke.Thickness = 1.2
-
-        local state = defaultState
-        Button.MouseButton1Click:Connect(function()
-            state = not state
-            TS:Create(Button, TweenInfo.new(0.15), { BackgroundColor3 = state and C_ACCENT or C_RED }):Play()
-            TS:Create(Stroke, TweenInfo.new(0.15), { Color = state and Color3.fromRGB(10, 140, 95) or Color3.fromRGB(160, 20, 20) }):Play()
-            if callback then callback(state) end
-        end)
-    end
-
     -- Поле ввода
     function WindowObj:AddInput(labelText, defaultText, callback)
         local Frame = Instance.new("Frame", Container)
@@ -211,7 +247,7 @@ function Library:CreateWindow(hubTitle)
         Box.FocusLost:Connect(function() if callback then callback(Box.Text) end end)
     end
 
-    -- ОДИНОЧНЫЙ ДРОПДАУН (SINGLE-SELECT)
+    -- ОДИНОЧНЫЙ ДРОПДАУН
     function WindowObj:AddDropdown(name, list, default, callback)
         list = list or {}
         local selected = default or list[1] or "Ничего"
@@ -286,7 +322,7 @@ function Library:CreateWindow(hubTitle)
         return DropObj
     end
 
-    -- МНОГОПОЛЬЗОВАТЕЛЬСКИЙ ДРОПДАУН (МУЛЬТИ-ВЫБОР) — БЕЗ ГАЛОЧЕК!
+    -- МНОГОПОЛЬЗОВАТЕЛЬСКИЙ ДРОПДАУН (МУЛЬТИ-ВЫБОР БЕЗ ГАЛОЧЕК)
     function WindowObj:AddMultiDropdown(name, list, callback)
         list = list or {}
         local selectedMap = {}
