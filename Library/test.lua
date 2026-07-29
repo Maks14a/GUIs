@@ -1,12 +1,14 @@
 -- ========================================================
---     OWNER HUB GUI LIBRARY v5.0 (FIXED Z-INDEX & FONT)
+--     OWNER HUB GUI LIBRARY v5.1 (SMOOTH THEMES & AUTO-SETTINGS)
 -- ========================================================
 local Library = {}
 
 local Players = game:GetService("Players")
 local TS = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 Library.Themes = {
@@ -31,7 +33,7 @@ local function LoadConfig()
     local result = nil
     pcall(function()
         if isfolder and isfolder(CONFIG_FOLDER) and isfile and isfile(CONFIG_FILE) and readfile then
-            result = HttpService:JSONEncode(readfile(CONFIG_FILE))
+            result = HttpService:JSONDecode(readfile(CONFIG_FILE))
         end
     end)
     return result or {}
@@ -42,6 +44,7 @@ local function ColorToHex(color)
 end
 
 local function TweenColor(obj, prop, targetColor, animate)
+    if not obj or not obj.Parent then return end
     if animate then
         TS:Create(obj, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {[prop] = targetColor}):Play()
     else
@@ -104,7 +107,6 @@ function Library:CreateWindow(hubTitle)
     ScreenGui.Name, ScreenGui.ResetOnSpawn = "OwnerHub_Core", false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    -- ТОЧНЫЕ РАЗМЕРЫ И ИСКЛЮЧЕНИЕ СТЫКОВ (560x350)
     local MainFrame = Instance.new("CanvasGroup", ScreenGui)
     MainFrame.Name = "MainFrame"
     MainFrame.BackgroundColor3 = C.BG
@@ -135,7 +137,7 @@ function Library:CreateWindow(hubTitle)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- ВЕРХНЯЯ ШАПКА
+    -- ХЕДЕР
     local Header = Instance.new("Frame", MainFrame)
     Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 42)
 
@@ -145,12 +147,12 @@ function Library:CreateWindow(hubTitle)
 
     local function updateTitleText(theme)
         local hex = ColorToHex(theme.Accent)
-        TitleLabel.Text = (hubTitle or "OWNER HUB") .. string.format(" <font color=\"%s\">v5.0</font>", hex)
+        TitleLabel.Text = (hubTitle or "OWNER HUB") .. string.format(" <font color=\"%s\">v5.1</font>", hex)
         TitleLabel.TextColor3 = theme.Text
     end
     updateTitleText(C)
 
-    -- КНОПКИ УПРАВЛЕНИЯ В ПРАВОМ УГЛУ (WINDOWS STYLE)
+    -- КНОПКИ СВЕРНУТЬ И ЗАКРЫТЬ
     local ControlHolder = Instance.new("Frame", Header)
     ControlHolder.BackgroundTransparency, ControlHolder.Position, ControlHolder.Size = 1, UDim2.new(1, -70, 0, 8), UDim2.new(0, 60, 0, 26)
 
@@ -162,68 +164,48 @@ function Library:CreateWindow(hubTitle)
 
     local CloseBtn = Instance.new("TextButton", ControlHolder)
     CloseBtn.Size, CloseBtn.Position, CloseBtn.AutoButtonColor = UDim2.new(0, 26, 0, 26), UDim2.new(0, 32, 0, 0), false
-    -- ФИКС КРЕСТИКА: Используем надежный символ "X"
     CloseBtn.Font, CloseBtn.Text, CloseBtn.TextSize = Enum.Font.GothamBold, "X", 12
     Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
     local CloseStroke = Instance.new("UIStroke", CloseBtn)
 
-    -- БОКОВАЯ ПАНЕЛЬ ТАБОВ (SIDEBAR - 135px width)
+    -- САЙДБАР И КОНТЕЙНЕР
     local Sidebar = Instance.new("ScrollingFrame", MainFrame)
-    Sidebar.Name = "Sidebar"
-    Sidebar.BackgroundTransparency = 1
-    Sidebar.Position = UDim2.new(0, 12, 0, 48)
-    Sidebar.Size = UDim2.new(0, 135, 1, -60)
-    Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    Sidebar.ScrollBarThickness = 0
+    Sidebar.Name, Sidebar.BackgroundTransparency, Sidebar.Position, Sidebar.Size = "Sidebar", 1, UDim2.new(0, 12, 0, 48), UDim2.new(0, 135, 1, -60)
+    Sidebar.CanvasSize, Sidebar.AutomaticCanvasSize, Sidebar.ScrollBarThickness = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 0
 
     local SidebarLayout = Instance.new("UIListLayout", Sidebar)
     SidebarLayout.SortOrder, SidebarLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 6)
 
-    -- ОСНОВНОЙ КОНТЕЙНЕР ДЛЯ КОНТЕНТА (CONTAINERS)
     local ContainerFolder = Instance.new("Frame", MainFrame)
-    ContainerFolder.Name = "Containers"
-    ContainerFolder.BackgroundTransparency = 1
-    ContainerFolder.Position = UDim2.new(0, 155, 0, 48)
-    ContainerFolder.Size = UDim2.new(1, -167, 1, -60)
+    ContainerFolder.Name, ContainerFolder.BackgroundTransparency, ContainerFolder.Position, ContainerFolder.Size = "Containers", 1, UDim2.new(0, 155, 0, 48), UDim2.new(1, -167, 1, -60)
 
-    -- ФИКС СЛОЕВ: Создаем ModalOverlay ПОСЛЕ Sidebar и Containers, чтобы он отрисовывался поверх всех элементов
+    -- МОДАЛЬНОЕ ОКНО (ЗАКРЫТИЕ)
     local ModalOverlay = Instance.new("Frame", MainFrame)
-    ModalOverlay.Name = "ModalOverlay"
-    ModalOverlay.Size, ModalOverlay.Position = UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0)
-    ModalOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    ModalOverlay.BackgroundTransparency = 1
-    ModalOverlay.ZIndex = 100
-    ModalOverlay.Visible = false
+    ModalOverlay.Name, ModalOverlay.Size, ModalOverlay.Position = "ModalOverlay", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0)
+    ModalOverlay.BackgroundColor3, ModalOverlay.BackgroundTransparency, ModalOverlay.ZIndex, ModalOverlay.Visible = Color3.fromRGB(0, 0, 0), 1, 100, false
 
     local ModalCard = Instance.new("Frame", ModalOverlay)
-    ModalCard.Size, ModalCard.Position = UDim2.new(0, 320, 0, 160), UDim2.new(0.5, -160, 0.5, -80)
-    ModalCard.BackgroundColor3 = C.Card
-    ModalCard.ZIndex = 101
+    ModalCard.Size, ModalCard.Position, ModalCard.BackgroundColor3, ModalCard.ZIndex = UDim2.new(0, 320, 0, 160), UDim2.new(0.5, -160, 0.5, -80), C.Card, 101
     Instance.new("UICorner", ModalCard).CornerRadius = UDim.new(0, 12)
     local ModalStroke = Instance.new("UIStroke", ModalCard)
     ModalStroke.Color, ModalStroke.Thickness = C.Accent, 1.5
 
     local ModalTitle = Instance.new("TextLabel", ModalCard)
-    ModalTitle.Size, ModalTitle.Position, ModalTitle.BackgroundTransparency = UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 10), 1
+    ModalTitle.Size, ModalTitle.Position, ModalTitle.BackgroundTransparency, ModalTitle.ZIndex = UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 10), 1, 102
     ModalTitle.Font, ModalTitle.Text, ModalTitle.TextColor3, ModalTitle.TextSize = Enum.Font.GothamBold, "ПОДТВЕРЖДЕНИЕ ВЫХОДА", C.Accent, 14
-    ModalTitle.ZIndex = 102
 
     local ModalDesc = Instance.new("TextLabel", ModalCard)
-    ModalDesc.Size, ModalDesc.Position, ModalDesc.BackgroundTransparency = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45), 1
-    ModalDesc.Font, ModalDesc.Text, ModalDesc.TextColor3, ModalDesc.TextSize, ModalDesc.TextWrapped = Enum.Font.GothamMedium, "Вы действительно хотите полностью закрыть и выгрузить Owner Hub?", C.Text, 12, true
-    ModalDesc.ZIndex = 102
+    ModalDesc.Size, ModalDesc.Position, ModalDesc.BackgroundTransparency, ModalDesc.ZIndex = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45), 1, 102
+    ModalDesc.Font, ModalDesc.Text, ModalDesc.TextColor3, ModalDesc.TextSize, ModalDesc.TextWrapped = Enum.Font.GothamMedium, "Вы действительно хотите полностью закрыть Owner Hub?", C.Text, 12, true
 
     local ModalYes = Instance.new("TextButton", ModalCard)
-    ModalYes.Size, ModalYes.Position, ModalYes.AutoButtonColor = UDim2.new(0, 135, 0, 32), UDim2.new(0, 15, 1, -45), false
+    ModalYes.Size, ModalYes.Position, ModalYes.AutoButtonColor, ModalYes.ZIndex = UDim2.new(0, 135, 0, 32), UDim2.new(0, 15, 1, -45), false, 102
     ModalYes.Font, ModalYes.Text, ModalYes.TextSize = Enum.Font.GothamBold, "Да, закрыть", 12
-    ModalYes.ZIndex = 102
     Instance.new("UICorner", ModalYes).CornerRadius = UDim.new(0, 8)
 
     local ModalNo = Instance.new("TextButton", ModalCard)
-    ModalNo.Size, ModalNo.Position, ModalNo.AutoButtonColor = UDim2.new(0, 135, 0, 32), UDim2.new(1, -150, 1, -45), false
+    ModalNo.Size, ModalNo.Position, ModalNo.AutoButtonColor, ModalNo.ZIndex = UDim2.new(0, 135, 0, 32), UDim2.new(1, -150, 1, -45), false, 102
     ModalNo.Font, ModalNo.Text, ModalNo.TextSize = Enum.Font.GothamBold, "Отмена", 12
-    ModalNo.ZIndex = 102
     Instance.new("UICorner", ModalNo).CornerRadius = UDim.new(0, 8)
     local ModalNoStroke = Instance.new("UIStroke", ModalNo)
 
@@ -235,6 +217,7 @@ function Library:CreateWindow(hubTitle)
         IsMinimized = false
     }
 
+    -- Плавный обработчик тем без утечек памяти
     function WindowObj:RegisterThemeUpdater(fn)
         table.insert(WindowObj.ThemeUpdaters, fn)
         fn(Library.CurrentTheme, false)
@@ -260,14 +243,15 @@ function Library:CreateWindow(hubTitle)
 
             updateTitleText(newC)
 
-            savedConfig.Theme = newThemeName
-            SaveConfig(savedConfig)
-
-            for _, updater in ipairs(WindowObj.ThemeUpdaters) do
-                updater(newC, true)
+            -- Очистка старых/удаленных функций из таблицы тем (Фикс лагов)
+            local validUpdaters = {}
+            for _, fn in ipairs(WindowObj.ThemeUpdaters) do
+                local success = pcall(fn, newC, true)
+                if success then
+                    table.insert(validUpdaters, fn)
+                end
             end
-
-            Library:Notify("ТЕМА ИЗМЕНЕНА", "Текущая тема: " .. newThemeName, 2)
+            WindowObj.ThemeUpdaters = validUpdaters
         end
     end
 
@@ -281,17 +265,13 @@ function Library:CreateWindow(hubTitle)
         TweenColor(CloseStroke, "Color", theme.Border, anim)
     end)
 
-    -- Сворачивание (Minimize)
     MinBtn.MouseButton1Click:Connect(function()
         WindowObj.IsMinimized = not WindowObj.IsMinimized
-        if WindowObj.IsMinimized then
-            TS:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 560, 0, 42)}):Play()
-        else
-            TS:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 560, 0, 350)}):Play()
-        end
+        TS:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = WindowObj.IsMinimized and UDim2.new(0, 560, 0, 42) or UDim2.new(0, 560, 0, 350)
+        }):Play()
     end)
 
-    -- Логика модального окна
     local function toggleModal(show)
         if show then
             ModalOverlay.Visible = true
@@ -310,38 +290,24 @@ function Library:CreateWindow(hubTitle)
     ModalNo.MouseButton1Click:Connect(function() toggleModal(false) end)
     ModalYes.MouseButton1Click:Connect(function()
         ScreenGui:Destroy()
-        Library:Notify("ВЫГРУЗКА", "Скрипт полностью остановлен и закрыт.", 3)
+        Library:Notify("ВЫГРУЗКА", "Скрипт успешно выгружен.", 3)
     end)
 
-    -- Создание Табов
+    -- СОЗДАНИЕ ВКАДОК
     function WindowObj:CreateTab(tabName)
         local TabBtn = Instance.new("TextButton", Sidebar)
         TabBtn.Name = tabName .. "_TabBtn"
-        TabBtn.Size = UDim2.new(1, 0, 0, 32)
-        TabBtn.Font = Enum.Font.GothamBold
-        TabBtn.Text = tabName
-        TabBtn.TextSize = 12
-        TabBtn.AutoButtonColor = false
+        TabBtn.Size, TabBtn.Font, TabBtn.Text, TabBtn.TextSize, TabBtn.AutoButtonColor = UDim2.new(1, 0, 0, 32), Enum.Font.GothamBold, tabName, 12, false
         Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 8)
-
         local TabBtnStroke = Instance.new("UIStroke", TabBtn)
         TabBtnStroke.Thickness = 1
 
         local ContentFrame = Instance.new("ScrollingFrame", ContainerFolder)
-        ContentFrame.Name = tabName .. "_Container"
-        ContentFrame.BackgroundTransparency = 1
-        ContentFrame.Size = UDim2.new(1, 0, 1, 0)
-        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        ContentFrame.ScrollBarThickness = 3
-        ContentFrame.BorderSizePixel = 0
-        ContentFrame.Visible = false
+        ContentFrame.Name, ContentFrame.BackgroundTransparency, ContentFrame.Size = tabName .. "_Container", 1, UDim2.new(1, 0, 1, 0)
+        ContentFrame.CanvasSize, ContentFrame.AutomaticCanvasSize, ContentFrame.ScrollBarThickness, ContentFrame.Visible = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 3, false
 
         local ContentPadding = Instance.new("UIPadding", ContentFrame)
-        ContentPadding.PaddingLeft = UDim.new(0, 2)
-        ContentPadding.PaddingRight = UDim.new(0, 6)
-        ContentPadding.PaddingTop = UDim.new(0, 2)
-        ContentPadding.PaddingBottom = UDim.new(0, 6)
+        ContentPadding.PaddingLeft, ContentPadding.PaddingRight, ContentPadding.PaddingTop, ContentPadding.PaddingBottom = UDim.new(0, 2), UDim.new(0, 6), UDim.new(0, 2), UDim.new(0, 6)
 
         local UIList = Instance.new("UIListLayout", ContentFrame)
         UIList.SortOrder, UIList.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 8)
@@ -364,24 +330,19 @@ function Library:CreateWindow(hubTitle)
         WindowObj:RegisterThemeUpdater(RefreshTabColors)
 
         local function ActivateTab()
-            for _, t in pairs(WindowObj.Tabs) do
-                t.Frame.Visible = false
-            end
+            for _, t in pairs(WindowObj.Tabs) do t.Frame.Visible = false end
             ContentFrame.Visible = true
             WindowObj.ActiveTab = TabObj
-            
-            for _, updater in ipairs(WindowObj.ThemeUpdaters) do
-                updater(Library.CurrentTheme, true)
-            end
+            for _, updater in ipairs(WindowObj.ThemeUpdaters) do updater(Library.CurrentTheme, true) end
         end
 
         TabBtn.MouseButton1Click:Connect(ActivateTab)
-        table.insert(WindowObj.Tabs, { Btn = TabBtn, Frame = ContentFrame, Stroke = TabBtnStroke, TabObj = TabObj })
+        table.insert(WindowObj.Tabs, { Btn = TabBtn, Frame = ContentFrame, TabObj = TabObj })
 
         if #WindowObj.Tabs == 1 then ActivateTab() end
 
         ----------------------------------------------------
-        -- КОМПОНЕНТЫ ВНУТРИ ВКАДОК
+        -- КОМПОНЕНТЫ
         ----------------------------------------------------
         function TabObj:AddSection(text)
             local Frame = Instance.new("Frame", ContentFrame)
@@ -514,15 +475,10 @@ function Library:CreateWindow(hubTitle)
             end
 
             Track.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    sliding = true
-                    updateSlider(input)
-                end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true updateSlider(input) end
             end)
             UIS.InputChanged:Connect(function(input)
-                if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    updateSlider(input)
-                end
+                if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then updateSlider(input) end
             end)
             UIS.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
@@ -539,7 +495,7 @@ function Library:CreateWindow(hubTitle)
             Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.5, 0, 1, 0), Enum.Font.GothamMedium, labelText, 12, Enum.TextXAlignment.Left
 
             local Box = Instance.new("TextBox", Frame)
-            Box.Position, Box.Size, Box.Font, Box.Text, Box.TextSize, Box.ClearTextOnFocus = UDim2.new(0.5, 0, 0.5, -10), UDim2.new(0.5, -8, 0, 20), Enum.Font.GothamBold, defaultText, 11, false
+            Box.Position, Box.Size, Box.Font, Box.Text, Box.TextSize, Box.ClearTextOnFocus = UDim2.new(0.5, 0, 0.5, -10), UDim2.new(0.5, -8, 0, 20), Enum.Font.GothamBold, defaultText or "", 11, false
             Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 6)
 
             WindowObj:RegisterThemeUpdater(function(theme, anim)
@@ -573,10 +529,7 @@ function Library:CreateWindow(hubTitle)
 
             local DropHolder = Instance.new("ScrollingFrame", Frame)
             DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 6, 0, 34), UDim2.new(1, -12, 0, 0)
-            DropHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
-            DropHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            DropHolder.ScrollBarThickness = 3
-            DropHolder.BorderSizePixel = 0
+            DropHolder.CanvasSize, DropHolder.AutomaticCanvasSize, DropHolder.ScrollBarThickness, DropHolder.BorderSizePixel = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 3, 0
 
             local ListLayout = Instance.new("UIListLayout", DropHolder)
             ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
@@ -602,19 +555,12 @@ function Library:CreateWindow(hubTitle)
 
             local function buildList(newList)
                 list = newList or list
-                for _, c in ipairs(DropHolder:GetChildren()) do
-                    if c:IsA("TextButton") then c:Destroy() end
-                end
+                for _, c in ipairs(DropHolder:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
                 for _, option in ipairs(list) do
                     local Btn = Instance.new("TextButton", DropHolder)
-                    Btn.Size, Btn.Font, Btn.Text, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11
+                    Btn.Size, Btn.Font, Btn.Text, Btn.TextSize, Btn.BackgroundColor3, Btn.TextColor3 = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11, Library.CurrentTheme.Input, Library.CurrentTheme.Text
                     Btn.TextTruncate = Enum.TextTruncate.AtEnd
                     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
-
-                    WindowObj:RegisterThemeUpdater(function(theme, anim)
-                        TweenColor(Btn, "BackgroundColor3", theme.Input, anim)
-                        TweenColor(Btn, "TextColor3", theme.Text, anim)
-                    end)
 
                     Btn.MouseButton1Click:Connect(function()
                         selected = option
@@ -649,10 +595,7 @@ function Library:CreateWindow(hubTitle)
 
             local DropHolder = Instance.new("ScrollingFrame", Frame)
             DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 6, 0, 34), UDim2.new(1, -12, 0, 0)
-            DropHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
-            DropHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            DropHolder.ScrollBarThickness = 3
-            DropHolder.BorderSizePixel = 0
+            DropHolder.CanvasSize, DropHolder.AutomaticCanvasSize, DropHolder.ScrollBarThickness, DropHolder.BorderSizePixel = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 3, 0
 
             local ListLayout = Instance.new("UIListLayout", DropHolder)
             ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
@@ -684,37 +627,24 @@ function Library:CreateWindow(hubTitle)
 
             local function buildList(newList)
                 list = newList or list
-                for _, c in ipairs(DropHolder:GetChildren()) do
-                    if c:IsA("TextButton") then c:Destroy() end
-                end
+                for _, c in ipairs(DropHolder:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
                 for _, option in ipairs(list) do
                     local Btn = Instance.new("TextButton", DropHolder)
                     Btn.Size, Btn.Font, Btn.Text, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11
+                    Btn.BackgroundColor3 = selectedMap[option] and Library.CurrentTheme.Accent or Library.CurrentTheme.Input
+                    Btn.TextColor3 = Library.CurrentTheme.Text
                     Btn.TextTruncate = Enum.TextTruncate.AtEnd
                     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
 
-                    local function applyBtnColor(theme, anim)
-                        theme = theme or Library.CurrentTheme
-                        TweenColor(Btn, "BackgroundColor3", selectedMap[option] and theme.Accent or theme.Input, anim)
-                        TweenColor(Btn, "TextColor3", theme.Text, anim)
-                    end
-
-                    WindowObj:RegisterThemeUpdater(applyBtnColor)
-
                     Btn.MouseButton1Click:Connect(function()
-                        if selectedMap[option] then
-                            selectedMap[option] = nil
-                        else
-                            selectedMap[option] = true
-                        end
-                        applyBtnColor(Library.CurrentTheme, true)
+                        selectedMap[option] = not selectedMap[option] and true or nil
+                        Btn.BackgroundColor3 = selectedMap[option] and Library.CurrentTheme.Accent or Library.CurrentTheme.Input
                         updateTitle()
                         if callback then callback(selectedMap) end
                     end)
                 end
                 updateTitle()
             end
-
             buildList(list)
 
             return { Refresh = function(_, newList) buildList(newList) end }
@@ -760,6 +690,54 @@ function Library:CreateWindow(hubTitle)
         end
 
         return TabObj
+    end
+
+    -- ========================================================
+    -- ЕДИНАЯ СТАНДАРТНАЯ ВКЛАДКА НАСТРОЕК (SETTINGS)
+    -- ========================================================
+    function WindowObj:CreateSettingsTab()
+        local SettingsTab = WindowObj:CreateTab("Settings")
+
+        SettingsTab:AddSection("Оформление")
+        
+        local selectedTheme = WindowObj.CurrentThemeName
+        SettingsTab:AddDropdown("Тема GUI", {"Emerald", "Ruby", "Sapphire", "Amethyst", "Amber"}, selectedTheme, function(val)
+            selectedTheme = val
+            WindowObj:SetTheme(val) -- Моментальный смуф-превью
+        end)
+
+        SettingsTab:AddButton("Сохранить настройки", function()
+            SaveConfig({ Theme = selectedTheme })
+            Library:Notify("НАСТРОЙКИ", "Текущая тема («" .. selectedTheme .. "») сохранена!", 2.5)
+        end)
+
+        SettingsTab:AddSection("Система и АФК")
+
+        -- Встроенная рабочая логика Анти-АФК
+        local antiAfkConn = nil
+        SettingsTab:AddToggle("Анти-АФК", true, function(state)
+            if state then
+                if not antiAfkConn then
+                    antiAfkConn = LocalPlayer.Idled:Connect(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new())
+                    end)
+                end
+            else
+                if antiAfkConn then
+                    antiAfkConn:Disconnect()
+                    antiAfkConn = nil
+                end
+            end
+        end)
+
+        -- Встроенная рабочая логика отключения 3D Рендера
+        SettingsTab:AddToggle("Отключить 3D Рендер", false, function(state)
+            RunService:Set3dRenderingEnabled(not state)
+            Library:Notify("ГРАФИКА", state and "3D-рендер отключен (экономия ресурсов)." or "3D-рендер включен.", 2)
+        end)
+
+        return SettingsTab
     end
 
     return WindowObj
