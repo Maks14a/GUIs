@@ -1008,7 +1008,7 @@ function Library:CreateWindow(hubTitle)
             Library:Notify("ГРАФИКА", state and "3D-рендер отключен." or "3D-рендер включен.", 2)
         end)
 
-        MainTab:AddButton("Перезайти", function()
+        SettingsTab:AddButton("Перезайти", function()
             local TeleportService = game:GetService("TeleportService")
             local Players = game:GetService("Players")
             
