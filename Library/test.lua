@@ -1,5 +1,5 @@
 -- ========================================================
---     OWNER HUB GUI LIBRARY v5.0 (HORIZONTAL + TWEEN THEMES)
+--     OWNER HUB GUI LIBRARY v5.0 (FIXED Z-INDEX & FONT)
 -- ========================================================
 local Library = {}
 
@@ -31,7 +31,7 @@ local function LoadConfig()
     local result = nil
     pcall(function()
         if isfolder and isfolder(CONFIG_FOLDER) and isfile and isfile(CONFIG_FILE) and readfile then
-            result = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            result = HttpService:JSONEncode(readfile(CONFIG_FILE))
         end
     end)
     return result or {}
@@ -58,6 +58,7 @@ function Library:Notify(titleText, msgText, duration)
         NotifGui = Instance.new("ScreenGui")
         NotifGui.Name = "OwnerHub_Notif"
         NotifGui.ResetOnSpawn = false
+        NotifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         NotifGui.Parent = CoreGui
     end
 
@@ -101,6 +102,7 @@ function Library:CreateWindow(hubTitle)
 
     local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"))
     ScreenGui.Name, ScreenGui.ResetOnSpawn = "OwnerHub_Core", false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     -- ТОЧНЫЕ РАЗМЕРЫ И ИСКЛЮЧЕНИЕ СТЫКОВ (560x350)
     local MainFrame = Instance.new("CanvasGroup", ScreenGui)
@@ -113,8 +115,6 @@ function Library:CreateWindow(hubTitle)
 
     local MainStroke = Instance.new("UIStroke", MainFrame)
     MainStroke.Color, MainStroke.Thickness, MainStroke.Transparency = C.Accent, 1.5, 0.2
-
-    local UIScale = Instance.new("UIScale", MainFrame)
 
     -- Перетаскивание
     local dragging, dragStart, startPos
@@ -162,42 +162,10 @@ function Library:CreateWindow(hubTitle)
 
     local CloseBtn = Instance.new("TextButton", ControlHolder)
     CloseBtn.Size, CloseBtn.Position, CloseBtn.AutoButtonColor = UDim2.new(0, 26, 0, 26), UDim2.new(0, 32, 0, 0), false
-    CloseBtn.Font, CloseBtn.Text, CloseBtn.TextSize = Enum.Font.GothamBold, "✕", 12
+    -- ФИКС КРЕСТИКА: Используем надежный символ "X"
+    CloseBtn.Font, CloseBtn.Text, CloseBtn.TextSize = Enum.Font.GothamBold, "X", 12
     Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
     local CloseStroke = Instance.new("UIStroke", CloseBtn)
-
-    -- МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ ВЫХОДА (CONFIRMATION MODAL)
-    local ModalOverlay = Instance.new("Frame", MainFrame)
-    ModalOverlay.Size, ModalOverlay.Position, ModalOverlay.ZIndex = UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), 100
-    ModalOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    ModalOverlay.BackgroundTransparency = 1
-    ModalOverlay.Visible = false
-
-    local ModalCard = Instance.new("Frame", ModalOverlay)
-    ModalCard.Size, ModalCard.Position = UDim2.new(0, 320, 0, 160), UDim2.new(0.5, -160, 0.5, -80)
-    ModalCard.BackgroundColor3 = C.Card
-    Instance.new("UICorner", ModalCard).CornerRadius = UDim.new(0, 12)
-    local ModalStroke = Instance.new("UIStroke", ModalCard)
-    ModalStroke.Color, ModalStroke.Thickness = C.Accent, 1.5
-
-    local ModalTitle = Instance.new("TextLabel", ModalCard)
-    ModalTitle.Size, ModalTitle.Position, ModalTitle.BackgroundTransparency = UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 10), 1
-    ModalTitle.Font, ModalTitle.Text, ModalTitle.TextColor3, ModalTitle.TextSize = Enum.Font.GothamBold, "ПОДТВЕРЖДЕНИЕ ВЫХОДА", C.Accent, 14
-
-    local ModalDesc = Instance.new("TextLabel", ModalCard)
-    ModalDesc.Size, ModalDesc.Position, ModalDesc.BackgroundTransparency = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45), 1
-    ModalDesc.Font, ModalDesc.Text, ModalDesc.TextColor3, ModalDesc.TextSize, ModalDesc.TextWrapped = Enum.Font.GothamMedium, "Вы действительно хотите полностью закрыть и выгрузить Owner Hub?", C.Text, 12, true
-
-    local ModalYes = Instance.new("TextButton", ModalCard)
-    ModalYes.Size, ModalYes.Position, ModalYes.AutoButtonColor = UDim2.new(0, 135, 0, 32), UDim2.new(0, 15, 1, -45), false
-    ModalYes.Font, ModalYes.Text, ModalYes.TextSize = Enum.Font.GothamBold, "Да, закрыть", 12
-    Instance.new("UICorner", ModalYes).CornerRadius = UDim.new(0, 8)
-
-    local ModalNo = Instance.new("TextButton", ModalCard)
-    ModalNo.Size, ModalNo.Position, ModalNo.AutoButtonColor = UDim2.new(0, 135, 0, 32), UDim2.new(1, -150, 1, -45), false
-    ModalNo.Font, ModalNo.Text, ModalNo.TextSize = Enum.Font.GothamBold, "Отмена", 12
-    Instance.new("UICorner", ModalNo).CornerRadius = UDim.new(0, 8)
-    local ModalNoStroke = Instance.new("UIStroke", ModalNo)
 
     -- БОКОВАЯ ПАНЕЛЬ ТАБОВ (SIDEBAR - 135px width)
     local Sidebar = Instance.new("ScrollingFrame", MainFrame)
@@ -218,6 +186,46 @@ function Library:CreateWindow(hubTitle)
     ContainerFolder.BackgroundTransparency = 1
     ContainerFolder.Position = UDim2.new(0, 155, 0, 48)
     ContainerFolder.Size = UDim2.new(1, -167, 1, -60)
+
+    -- ФИКС СЛОЕВ: Создаем ModalOverlay ПОСЛЕ Sidebar и Containers, чтобы он отрисовывался поверх всех элементов
+    local ModalOverlay = Instance.new("Frame", MainFrame)
+    ModalOverlay.Name = "ModalOverlay"
+    ModalOverlay.Size, ModalOverlay.Position = UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0)
+    ModalOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    ModalOverlay.BackgroundTransparency = 1
+    ModalOverlay.ZIndex = 100
+    ModalOverlay.Visible = false
+
+    local ModalCard = Instance.new("Frame", ModalOverlay)
+    ModalCard.Size, ModalCard.Position = UDim2.new(0, 320, 0, 160), UDim2.new(0.5, -160, 0.5, -80)
+    ModalCard.BackgroundColor3 = C.Card
+    ModalCard.ZIndex = 101
+    Instance.new("UICorner", ModalCard).CornerRadius = UDim.new(0, 12)
+    local ModalStroke = Instance.new("UIStroke", ModalCard)
+    ModalStroke.Color, ModalStroke.Thickness = C.Accent, 1.5
+
+    local ModalTitle = Instance.new("TextLabel", ModalCard)
+    ModalTitle.Size, ModalTitle.Position, ModalTitle.BackgroundTransparency = UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 10), 1
+    ModalTitle.Font, ModalTitle.Text, ModalTitle.TextColor3, ModalTitle.TextSize = Enum.Font.GothamBold, "ПОДТВЕРЖДЕНИЕ ВЫХОДА", C.Accent, 14
+    ModalTitle.ZIndex = 102
+
+    local ModalDesc = Instance.new("TextLabel", ModalCard)
+    ModalDesc.Size, ModalDesc.Position, ModalDesc.BackgroundTransparency = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45), 1
+    ModalDesc.Font, ModalDesc.Text, ModalDesc.TextColor3, ModalDesc.TextSize, ModalDesc.TextWrapped = Enum.Font.GothamMedium, "Вы действительно хотите полностью закрыть и выгрузить Owner Hub?", C.Text, 12, true
+    ModalDesc.ZIndex = 102
+
+    local ModalYes = Instance.new("TextButton", ModalCard)
+    ModalYes.Size, ModalYes.Position, ModalYes.AutoButtonColor = UDim2.new(0, 135, 0, 32), UDim2.new(0, 15, 1, -45), false
+    ModalYes.Font, ModalYes.Text, ModalYes.TextSize = Enum.Font.GothamBold, "Да, закрыть", 12
+    ModalYes.ZIndex = 102
+    Instance.new("UICorner", ModalYes).CornerRadius = UDim.new(0, 8)
+
+    local ModalNo = Instance.new("TextButton", ModalCard)
+    ModalNo.Size, ModalNo.Position, ModalNo.AutoButtonColor = UDim2.new(0, 135, 0, 32), UDim2.new(1, -150, 1, -45), false
+    ModalNo.Font, ModalNo.Text, ModalNo.TextSize = Enum.Font.GothamBold, "Отмена", 12
+    ModalNo.ZIndex = 102
+    Instance.new("UICorner", ModalNo).CornerRadius = UDim.new(0, 8)
+    local ModalNoStroke = Instance.new("UIStroke", ModalNo)
 
     local WindowObj = {
         Tabs = {},
@@ -263,7 +271,6 @@ function Library:CreateWindow(hubTitle)
         end
     end
 
-    -- Настройка кнопок управления шапки
     WindowObj:RegisterThemeUpdater(function(theme, anim)
         TweenColor(MinBtn, "BackgroundColor3", theme.Card, anim)
         TweenColor(MinBtn, "TextColor3", theme.Text, anim)
@@ -284,11 +291,11 @@ function Library:CreateWindow(hubTitle)
         end
     end)
 
-    -- Модальное окно при закрытии (Close confirm)
+    -- Логика модального окна
     local function toggleModal(show)
         if show then
             ModalOverlay.Visible = true
-            TS:Create(ModalOverlay, TweenInfo.new(0.25), {BackgroundTransparency = 0.5}):Play()
+            TS:Create(ModalOverlay, TweenInfo.new(0.25), {BackgroundTransparency = 0.4}):Play()
             ModalCard.Size = UDim2.new(0, 280, 0, 140)
             TS:Create(ModalCard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 320, 0, 160)}):Play()
         else
@@ -425,7 +432,6 @@ function Library:CreateWindow(hubTitle)
             Frame.Size = UDim2.new(1, 0, 0, 34)
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
             local Stroke = Instance.new("UIStroke", Frame)
-            Stroke.Thickness = 1
 
             local Label = Instance.new("TextLabel", Frame)
             Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(1, -55, 1, 0), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
