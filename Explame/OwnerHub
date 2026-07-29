@@ -1,64 +1,90 @@
--- ==============================================================================
---              OWNER HUB GUI LIBRARY v5.0 — ПАМЯТКА ПО ИСПОЛЬЗОВАНИЮ
--- ==============================================================================
+-- ========================================================
+--    ШПОРА / QUICK REFERENCE: OWNER HUB GUI LIBRARY v5.1
+-- ========================================================
 
--- 1. Подключение библиотеки
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Maks14a/GUIs/refs/heads/main/Library/Emeraldy.lua"))()
-
--- 2. Создание главного окна (Поддерживает RichText для авто-цвета версии)
+-- 1. ИНИЦИАЛИЗАЦИЯ И СОЗДАНИЕ ОКНА
+local Library = loadstring(game:HttpGet("ССЫЛКА_НА_ТВОЙ_RAW_СКРИПТ"))()
 local Window = Library:CreateWindow("OWNER HUB")
 
--- 3. Создание вкладки (Tab)
-local Tab = Window:CreateTab("Название Вкладки")
+-- 2. СОЗДАНИЕ ОБЫЧНЫХ ВКЛАДОК
+local MainTab  = Window:CreateTab("Main")
+local FarmTab  = Window:CreateTab("Farm")
 
--- 4. Добавление Секции / Заголовка
-Tab:AddSection("Заголовок группы")
+-- 3. СОЗДАНИЕ СТАНДАРТНОЙ ВКЛАДКИ НАСТРОЕК (Создавать 1 вызовом в конце)
+-- Автоматически добавляет: Тему + Сохранение темы, Анти-АФК, Выключение 3D-Рендера
+Window:CreateSettingsTab()
 
--- 5. Добавление Текстовой Метки (Label)
-Tab:AddLabel("Простой текст", Color3.fromRGB(255, 255, 255)) -- Внутренний цвет опционален
 
--- 6. Добавление Кнопки (Button)
-Tab:AddButton("Кнопка", function()
-    print("Кнопка нажата!")
+-- ========================================================
+-- 4. ШПАРОГАЛКА ПО КОМПОНЕНТАМ И ЭЛЕМЕНТАМ (ВКЛАДКА)
+-- ========================================================
+
+--- [ Разделитель / Секция ]
+MainTab:AddSection("Заголовок Секции")
+
+--- [ Текстовая Надпись (Label) ]
+-- Поддерживает RichText (HTML теги: color, b, i и т.д.)
+MainTab:AddLabel("Простая надпись")
+MainTab:AddLabel("Цветной текст: <font color='#00FF00'>АКТИВНО</font>")
+
+--- [ Кнопка (Button) ]
+MainTab:AddButton("Активировать", function()
+    print("Кнопка была нажата!")
 end)
 
--- 7. Добавление Переключателя (Toggle)
-local myToggle = Tab:AddToggle("Авто-Фарм", false, function(state)
-    print("Состояние переключателя:", state)
+--- [ Переключатель (Toggle) ]
+-- Аргументы: (Название, НачальноеСостояние, Callback)
+local MyToggle = MainTab:AddToggle("Авто-Фарм", false, function(state)
+    print("Состояние переключателя:", state) -- returns true или false
 end)
--- Управление из кода: myToggle:Set(true)
+-- Изменить состояние через код: MyToggle:Set(true)
 
--- 8. Добавление Поля Ввода (Input)
-Tab:AddInput("Скорость", "50", function(text)
-    print("Введено значение:", text)
+--- [ Ползунок (Slider) ]
+-- Аргументы: (Название, Мин, Макс, ПоУмолчанию, Шаг, Callback)
+MainTab:AddSlider("Скорость бега", 16, 250, 16, 1, function(value)
+    print("Выбрано значение:", value)
 end)
 
--- 9. Добавление Выпадающего Списка (Single Dropdown)
-local myDrop = Tab:AddDropdown("Выбор Режима", {"Режим 1", "Режим 2"}, "Режим 1", function(selected)
-    print("Выбрано:", selected)
+--- [ Поле Ввода (Input) ]
+-- Аргументы: (Название, ТекстПоУмолчанию, Callback)
+MainTab:AddInput("Имя игрока", "Player1", function(text)
+    print("Введенный текст:", text)
 end)
--- Обновление списка из кода: myDrop:Refresh({"Новый 1", "Новый 2"}, "Новый 1")
 
--- 10. Добавление Множественного Выбора (Multi Dropdown)
-Tab:AddMultiDropdown("Цели", {"Цель A", "Цель B", "Цель C"}, function(selectedTable)
-    -- selectedTable = { ["Цель A"] = true, ["Цель B"] = nil }
-    for item, isSelected in pairs(selectedTable) do
-        print(item, isSelected)
+--- [ Одиночный Выпадающий Список (Dropdown) ]
+-- Аргументы: (Название, СписокВариантов, ВыбранныйПоУмолчанию, Callback)
+local Drop = MainTab:AddDropdown("Локация", {"Спавн", "Лес", "Пещера"}, "Спавн", function(selected)
+    print("Выбрана локация:", selected)
+end)
+-- Динамическое обновление списка из кода:
+-- Drop:Refresh({"НоваяЛокация1", "НоваяЛокация2"}, "НоваяЛокация1")
+
+--- [ Множественный Выпадающий Список (MultiDropdown) ]
+-- Аргументы: (Название, СписокВариантов, Callback)
+local MultiDrop = MainTab:AddMultiDropdown("Выбор предметов", {"Меч", "Щит", "Зелье"}, function(selectedMap)
+    -- selectedMap возвращает таблицу вида { ["Меч"] = true, ["Зелье"] = true }
+    for item, state in pairs(selectedMap) do
+        print("Выбран предмет:", item)
     end
 end)
+-- Динамическое обновление списка из кода:
+-- MultiDrop:Refresh({"Предмет1", "Предмет2"})
 
--- 11. Добавление Слайдера (Slider)
-Tab:AddSlider("Скорость бега", 16, 200, 16, 1, function(value)
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
-end)
-
--- 12. Добавление Выбора Клавиши (Keybind)
-Tab:AddKeybind("Горячая клавиша", Enum.KeyCode.E, function(key)
+--- [ Назначение Клавиши (Keybind) ]
+-- Аргументы: (Название, КлавишаПоУмолчанию, Callback)
+MainTab:AddKeybind("Активация боя", Enum.KeyCode.E, function(key)
     print("Нажата назначена клавиша:", key.Name)
 end)
 
--- 13. Отправка Уведомления (Notification)
-Library:Notify("Уведомление", "Текст сообщения", 3.5)
 
--- 14. Смена Темы из Кода (Мгновенно с анимацией)
-Window:SetTheme("Ruby") -- Доступны: Emerald, Ruby, Sapphire, Amethyst, Amber
+-- ========================================================
+-- 5. ВСПОМОГАТЕЛЬНЫЕ И ГЛОБАЛЬНЫЕ ФУНКЦИИ
+-- ========================================================
+
+--- [ Всплывающее Уведомление (Notification) ]
+-- Аргументы: (Заголовок, Сообщение, ДлительностьСекунд)
+Library:Notify("УСПЕХ", "Скрипт успешно подключен!", 3)
+
+--- [ Программная смена темы ]
+-- Доступные темы: "Emerald", "Ruby", "Sapphire", "Amethyst", "Amber"
+Window:SetTheme("Sapphire")
