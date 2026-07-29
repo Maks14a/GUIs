@@ -1,5 +1,5 @@
 -- ========================================================
---  OWNER HUB GUI LIBRARY v5.5 (HOLD & PRESS/RELEASE KEYBINDS)
+--  OWNER HUB GUI LIBRARY v5.5 (FIXED)
 -- ========================================================
 local Library = {}
 
@@ -24,12 +24,8 @@ local CONFIG_FILE = "OwnerHub/config.json"
 
 local function SaveConfig(data)
     pcall(function()
-        if isfolder and not isfolder(CONFIG_FOLDER) and makefolder then 
-            makefolder(CONFIG_FOLDER) 
-        end
-        if writefile then 
-            writefile(CONFIG_FILE, HttpService:JSONEncode(data)) 
-        end
+        if isfolder and not isfolder(CONFIG_FOLDER) and makefolder then makefolder(CONFIG_FOLDER) end
+        if writefile then writefile(CONFIG_FILE, HttpService:JSONEncode(data)) end
     end)
 end
 
@@ -37,10 +33,10 @@ local function LoadConfig()
     local result = nil
     pcall(function()
         if isfolder and isfolder(CONFIG_FOLDER) and isfile and isfile(CONFIG_FILE) and readfile then
-            result = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            result = HttpService:JSONEncode(readfile(CONFIG_FILE))
         end
     end)
-    return type(result) == "table" and result or {}
+    return result or {}
 end
 
 local function ColorToHex(color)
@@ -132,10 +128,17 @@ function Library:CreateWindow(hubTitle)
         CurrentThemeName = themeName,
         ToggleKey = initialToggleKey,
         ThemeUpdaters = {},
+        Connections = {}, -- Реестр всех подключений для полной очистки
+        ActiveThreads = {}, -- Реестр активных потоков (кейбинды удержания)
         IsMinimized = false,
         IsOpen = true,
         IsAnimating = false
     }
+
+    local function TrackConn(conn)
+        table.insert(WindowObj.Connections, conn)
+        return conn
+    end
 
     function WindowObj:Toggle(forceState)
         if WindowObj.IsAnimating then return end
@@ -171,31 +174,31 @@ function Library:CreateWindow(hubTitle)
         end
     end
 
-    UIS.InputBegan:Connect(function(input, gpe)
+    TrackConn(UIS.InputBegan:Connect(function(input, gpe)
         if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
             if input.KeyCode == WindowObj.ToggleKey then
                 WindowObj:Toggle()
             end
         end
-    end)
+    end))
 
     local dragging, dragStart, startPos
-    MainFrame.InputBegan:Connect(function(input)
+    TrackConn(MainFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging, dragStart, startPos = true, input.Position, MainFrame.Position
         end
-    end)
-    UIS.InputChanged:Connect(function(input)
+    end))
+    TrackConn(UIS.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
             TS:Create(MainFrame, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             }):Play()
         end
-    end)
-    UIS.InputEnded:Connect(function(input)
+    end))
+    TrackConn(UIS.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-    end)
+    end))
 
     local Header = Instance.new("Frame", MainFrame)
     Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 42)
@@ -217,14 +220,20 @@ function Library:CreateWindow(hubTitle)
     local MinBtn = Instance.new("TextButton", ControlHolder)
     MinBtn.Size, MinBtn.Position, MinBtn.AutoButtonColor = UDim2.new(0, 26, 0, 26), UDim2.new(0, 0, 0, 0), false
     MinBtn.Font, MinBtn.Text, MinBtn.TextSize = Enum.Font.GothamBold, "—", 12
+    MinBtn.BackgroundColor3 = C.Card
+    MinBtn.TextColor3 = C.Text
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
     local MinStroke = Instance.new("UIStroke", MinBtn)
+    MinStroke.Color = C.Border
 
     local CloseBtn = Instance.new("TextButton", ControlHolder)
     CloseBtn.Size, CloseBtn.Position, CloseBtn.AutoButtonColor = UDim2.new(0, 26, 0, 26), UDim2.new(0, 32, 0, 0), false
     CloseBtn.Font, CloseBtn.Text, CloseBtn.TextSize = Enum.Font.GothamBold, "X", 12
+    CloseBtn.BackgroundColor3 = C.Card
+    CloseBtn.TextColor3 = C.Text
     Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
     local CloseStroke = Instance.new("UIStroke", CloseBtn)
+    CloseStroke.Color = C.Border
 
     local Sidebar = Instance.new("ScrollingFrame", MainFrame)
     Sidebar.Name, Sidebar.BackgroundTransparency, Sidebar.Position, Sidebar.Size = "Sidebar", 1, UDim2.new(0, 12, 0, 48), UDim2.new(0, 135, 1, -60)
@@ -254,16 +263,22 @@ function Library:CreateWindow(hubTitle)
     ModalDesc.Size, ModalDesc.Position, ModalDesc.BackgroundTransparency, ModalDesc.ZIndex = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45), 1, 102
     ModalDesc.Font, ModalDesc.Text, ModalDesc.TextColor3, ModalDesc.TextSize, ModalDesc.TextWrapped = Enum.Font.GothamMedium, "Вы действительно хотите полностью закрыть Owner Hub?", C.Text, 12, true
 
+    -- Фикс внешнего вида кнопок закрытия (присваиваем цвета сразу при создании)
     local ModalYes = Instance.new("TextButton", ModalCard)
     ModalYes.Size, ModalYes.Position, ModalYes.AutoButtonColor, ModalYes.ZIndex = UDim2.new(0, 135, 0, 32), UDim2.new(0, 15, 1, -45), false, 102
     ModalYes.Font, ModalYes.Text, ModalYes.TextSize = Enum.Font.GothamBold, "Да, закрыть", 12
+    ModalYes.BackgroundColor3 = C.Accent
+    ModalYes.TextColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", ModalYes).CornerRadius = UDim.new(0, 8)
 
     local ModalNo = Instance.new("TextButton", ModalCard)
     ModalNo.Size, ModalNo.Position, ModalNo.AutoButtonColor, ModalNo.ZIndex = UDim2.new(0, 135, 0, 32), UDim2.new(1, -150, 1, -45), false, 102
     ModalNo.Font, ModalNo.Text, ModalNo.TextSize = Enum.Font.GothamBold, "Отмена", 12
+    ModalNo.BackgroundColor3 = C.Card
+    ModalNo.TextColor3 = C.Text
     Instance.new("UICorner", ModalNo).CornerRadius = UDim.new(0, 8)
     local ModalNoStroke = Instance.new("UIStroke", ModalNo)
+    ModalNoStroke.Color = C.Border
 
     function WindowObj:RegisterThemeUpdater(fn)
         table.insert(WindowObj.ThemeUpdaters, fn)
@@ -332,7 +347,21 @@ function Library:CreateWindow(hubTitle)
 
     CloseBtn.MouseButton1Click:Connect(function() toggleModal(true) end)
     ModalNo.MouseButton1Click:Connect(function() toggleModal(false) end)
+
+    -- Фикс полной отгрузки: отключаем ВСЕ события и потоки при закрытии
     ModalYes.MouseButton1Click:Connect(function()
+        for _, thread in ipairs(WindowObj.ActiveThreads) do
+            if thread then pcall(task.cancel, thread) end
+        end
+        table.clear(WindowObj.ActiveThreads)
+
+        for _, conn in ipairs(WindowObj.Connections) do
+            if conn and conn.Connected then
+                conn:Disconnect()
+            end
+        end
+        table.clear(WindowObj.Connections)
+
         ScreenGui:Destroy()
         Library:Notify("ВЫГРУЗКА", "Скрипт успешно выгружен.", 3)
     end)
@@ -514,15 +543,15 @@ function Library:CreateWindow(hubTitle)
                 if callback then callback(value) end
             end
 
-            Track.InputBegan:Connect(function(input)
+            TrackConn(Track.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true updateSlider(input) end
-            end)
-            UIS.InputChanged:Connect(function(input)
+            end))
+            TrackConn(UIS.InputChanged:Connect(function(input)
                 if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then updateSlider(input) end
-            end)
-            UIS.InputEnded:Connect(function(input)
+            end))
+            TrackConn(UIS.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
-            end)
+            end))
         end
 
         function TabObj:AddInput(labelText, defaultText, callback)
@@ -690,7 +719,7 @@ function Library:CreateWindow(hubTitle)
             return { Refresh = function(_, newList) buildList(newList) end }
         end
 
-        -- 1. СТАНДАРТНЫЙ ОДИНОЧНЫЙ КЕЙБИНД
+        -- 1. СТАНДАРТНЫЙ ОДИНОЧНЫЙ КЕЙБИНД (FIXED CONNECTION)
         function TabObj:AddKeybind(name, defaultKey, callback, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -720,7 +749,7 @@ function Library:CreateWindow(hubTitle)
                 BindBtn.Text = "..."
             end)
 
-            UIS.InputBegan:Connect(function(input, gpe)
+            TrackConn(UIS.InputBegan:Connect(function(input, gpe)
                 if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
                 if binding then
@@ -731,10 +760,10 @@ function Library:CreateWindow(hubTitle)
                 elseif input.KeyCode == currentKey then
                     if callback then callback(currentKey) end
                 end
-            end)
+            end))
         end
 
-        -- 2. ЦИКЛИЧНЫЙ КЕЙБИНД ПРИ УДЕРЖАНИИ
+        -- 2. ЦИКЛИЧНЫЙ КЕЙБИНД ПРИ УДЕРЖАНИИ (FIXED CONNECTION)
         function TabObj:AddHoldKeybind(name, defaultKey, loopInterval, loopCallback, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -766,7 +795,7 @@ function Library:CreateWindow(hubTitle)
                 BindBtn.Text = "..."
             end)
 
-            UIS.InputBegan:Connect(function(input, gpe)
+            TrackConn(UIS.InputBegan:Connect(function(input, gpe)
                 if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
                 if binding then
@@ -782,10 +811,11 @@ function Library:CreateWindow(hubTitle)
                             task.wait(loopInterval or 0.1)
                         end
                     end)
+                    table.insert(WindowObj.ActiveThreads, holdThread)
                 end
-            end)
+            end))
 
-            UIS.InputEnded:Connect(function(input)
+            TrackConn(UIS.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey then
                     isHolding = false
                     if holdThread then
@@ -793,10 +823,10 @@ function Library:CreateWindow(hubTitle)
                         holdThread = nil
                     end
                 end
-            end)
+            end))
         end
 
-        -- 3. КЕЙБИНД "ЗАЖАЛ - СКРИПТ A / ОТПУСТИЛ - СКРИПТ B"
+        -- 3. КЕЙБИНД "ЗАЖАЛ - СКРИПТ A / ОТПУСТИЛ - СКРИПТ B" (FIXED CONNECTION)
         function TabObj:AddPressReleaseKeybind(name, defaultKey, onPress, onRelease, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -827,7 +857,7 @@ function Library:CreateWindow(hubTitle)
                 BindBtn.Text = "..."
             end)
 
-            UIS.InputBegan:Connect(function(input, gpe)
+            TrackConn(UIS.InputBegan:Connect(function(input, gpe)
                 if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
                 if binding then
@@ -839,17 +869,17 @@ function Library:CreateWindow(hubTitle)
                     isPressed = true
                     if onPress then pcall(onPress, currentKey) end
                 end
-            end)
+            end))
 
-            UIS.InputEnded:Connect(function(input)
+            TrackConn(UIS.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey and isPressed then
                     isPressed = false
                     if onRelease then pcall(onRelease, currentKey) end
                 end
-            end)
+            end))
         end
 
-        -- 4. КОМБИНИРОВАННЫЙ КЕЙБИНД (Нажал A -> Цикл B -> Отпустил C)
+        -- 4. КОМБИНИРОВАННЫЙ КЕЙБИНД (FIXED CONNECTION)
         function TabObj:AddHoldPressReleaseKeybind(name, defaultKey, loopInterval, onPress, holdLoop, onRelease, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -881,7 +911,7 @@ function Library:CreateWindow(hubTitle)
                 BindBtn.Text = "..."
             end)
 
-            UIS.InputBegan:Connect(function(input, gpe)
+            TrackConn(UIS.InputBegan:Connect(function(input, gpe)
                 if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
                 if binding then
@@ -892,10 +922,8 @@ function Library:CreateWindow(hubTitle)
                 elseif input.KeyCode == currentKey and not isHolding then
                     isHolding = true
 
-                    -- 1. Скрипт A: Нажал
                     if onPress then pcall(onPress, currentKey) end
 
-                    -- 2. Скрипт B: Цикл удержания
                     if holdLoop then
                         holdThread = task.spawn(function()
                             while isHolding do
@@ -903,24 +931,23 @@ function Library:CreateWindow(hubTitle)
                                 task.wait(loopInterval or 0.1)
                             end
                         end)
+                        table.insert(WindowObj.ActiveThreads, holdThread)
                     end
                 end
-            end)
+            end))
 
-            UIS.InputEnded:Connect(function(input)
+            TrackConn(UIS.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey and isHolding then
                     isHolding = false
 
-                    -- Останавливаем цикл
                     if holdThread then
                         pcall(task.cancel, holdThread)
                         holdThread = nil
                     end
 
-                    -- 3. Скрипт C: Отпустил
                     if onRelease then pcall(onRelease, currentKey) end
                 end
-            end)
+            end))
         end
 
         return TabObj
@@ -962,6 +989,7 @@ function Library:CreateWindow(hubTitle)
                         VirtualUser:CaptureController()
                         VirtualUser:ClickButton2(Vector2.new())
                     end)
+                    TrackConn(antiAfkConn)
                 end
             else
                 if antiAfkConn then
