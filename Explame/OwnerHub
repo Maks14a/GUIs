@@ -3,7 +3,7 @@
 -- ========================================================
 
 -- 1. ИНИЦИАЛИЗАЦИЯ И СОЗДАНИЕ ОКНА
-local Library = loadstring(game:HttpGet("ССЫЛКА_НА_ТВОЙ_RAW_СКРИПТ"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Maks14a/GUIs/refs/heads/main/Library/test.lua"))()
 local Window = Library:CreateWindow("OWNER HUB")
 
 -- 2. СОЗДАНИЕ ОБЫЧНЫХ ВКЛАДОК
