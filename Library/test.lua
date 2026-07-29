@@ -1,5 +1,5 @@
 -- ========================================================
---  OWNER HUB GUI LIBRARY v5.3 (FIXED KEYBIND SYSTEM)
+--  OWNER HUB GUI LIBRARY v5.5 (HOLD & PRESS/RELEASE KEYBINDS)
 -- ========================================================
 local Library = {}
 
@@ -33,7 +33,7 @@ local function LoadConfig()
     local result = nil
     pcall(function()
         if isfolder and isfolder(CONFIG_FOLDER) and isfile and isfile(CONFIG_FILE) and readfile then
-            result = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            result = HttpService:JSONEncode(readfile(CONFIG_FILE))
         end
     end)
     return result or {}
@@ -115,17 +115,62 @@ function Library:CreateWindow(hubTitle)
     MainFrame.BackgroundColor3 = C.BG
     MainFrame.Position = UDim2.new(0.5, -280, 0.5, -175)
     MainFrame.Size = UDim2.new(0, 560, 0, 350)
+    MainFrame.GroupTransparency = 0
     MainFrame.ClipsDescendants = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
     local MainStroke = Instance.new("UIStroke", MainFrame)
     MainStroke.Color, MainStroke.Thickness, MainStroke.Transparency = C.Accent, 1.5, 0.2
 
-    local WindowToggleKey = initialToggleKey
+    local WindowObj = {
+        Tabs = {},
+        ActiveTab = nil,
+        CurrentThemeName = themeName,
+        ToggleKey = initialToggleKey,
+        ThemeUpdaters = {},
+        IsMinimized = false,
+        IsOpen = true,
+        IsAnimating = false
+    }
+
+    function WindowObj:Toggle(forceState)
+        if WindowObj.IsAnimating then return end
+        local targetState = (forceState ~= nil) and forceState or not WindowObj.IsOpen
+        if targetState == WindowObj.IsOpen then return end
+
+        WindowObj.IsOpen = targetState
+        WindowObj.IsAnimating = true
+
+        local fullHeight = WindowObj.IsMinimized and 42 or 350
+        local targetSize = UDim2.new(0, 560, 0, fullHeight)
+        local closedSize = UDim2.new(0, 510, 0, fullHeight * 0.9)
+
+        if WindowObj.IsOpen then
+            MainFrame.Visible = true
+            MainFrame.Size = closedSize
+            MainFrame.GroupTransparency = 1
+
+            local t1 = TS:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = targetSize})
+            local t2 = TS:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {GroupTransparency = 0})
+            t1:Play()
+            t2:Play()
+            t1.Completed:Connect(function() WindowObj.IsAnimating = false end)
+        else
+            local t1 = TS:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = closedSize})
+            local t2 = TS:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {GroupTransparency = 1})
+            t1:Play()
+            t2:Play()
+            t1.Completed:Connect(function()
+                MainFrame.Visible = false
+                WindowObj.IsAnimating = false
+            end)
+        end
+    end
+
     UIS.InputBegan:Connect(function(input, gpe)
         if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
-            if input.KeyCode == WindowToggleKey then
-                MainFrame.Visible = not MainFrame.Visible
+            if input.KeyCode == WindowObj.ToggleKey then
+                WindowObj:Toggle()
             end
         end
     end)
@@ -157,7 +202,7 @@ function Library:CreateWindow(hubTitle)
 
     local function updateTitleText(theme)
         local hex = ColorToHex(theme.Accent)
-        TitleLabel.Text = (hubTitle or "OWNER HUB") .. string.format(" <font color=\"%s\">v5.3</font>", hex)
+        TitleLabel.Text = (hubTitle or "OWNER HUB") .. string.format(" <font color=\"%s\">v5.5</font>", hex)
         TitleLabel.TextColor3 = theme.Text
     end
     updateTitleText(C)
@@ -215,15 +260,6 @@ function Library:CreateWindow(hubTitle)
     ModalNo.Font, ModalNo.Text, ModalNo.TextSize = Enum.Font.GothamBold, "Отмена", 12
     Instance.new("UICorner", ModalNo).CornerRadius = UDim.new(0, 8)
     local ModalNoStroke = Instance.new("UIStroke", ModalNo)
-
-    local WindowObj = {
-        Tabs = {},
-        ActiveTab = nil,
-        CurrentThemeName = themeName,
-        ToggleKey = WindowToggleKey,
-        ThemeUpdaters = {},
-        IsMinimized = false
-    }
 
     function WindowObj:RegisterThemeUpdater(fn)
         table.insert(WindowObj.ThemeUpdaters, fn)
@@ -650,7 +686,8 @@ function Library:CreateWindow(hubTitle)
             return { Refresh = function(_, newList) buildList(newList) end }
         end
 
-        function TabObj:AddKeybind(name, defaultKey, callback)
+        -- 1. СТАНДАРТНЫЙ ОДИНОЧНЫЙ КЕЙБИНД
+        function TabObj:AddKeybind(name, defaultKey, callback, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
 
@@ -680,15 +717,204 @@ function Library:CreateWindow(hubTitle)
             end)
 
             UIS.InputBegan:Connect(function(input, gpe)
-                if gpe then return end
-                if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
                 if binding then
                     currentKey = input.KeyCode
                     BindBtn.Text = currentKey.Name
                     binding = false
+                    if onChanged then onChanged(currentKey) end
                 elseif input.KeyCode == currentKey then
                     if callback then callback(currentKey) end
+                end
+            end)
+        end
+
+        -- 2. ЦИКЛИЧНЫЙ КЕЙБИНД ПРИ УДЕРЖАНИИ
+        function TabObj:AddHoldKeybind(name, defaultKey, loopInterval, loopCallback, onChanged)
+            local currentKey = defaultKey or Enum.KeyCode.E
+            local binding = false
+            local isHolding = false
+            local holdThread = nil
+
+            local Frame = Instance.new("Frame", ContentFrame)
+            Frame.Size = UDim2.new(1, 0, 0, 34)
+            Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+            local Stroke = Instance.new("UIStroke", Frame)
+
+            local Label = Instance.new("TextLabel", Frame)
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.6, 0, 1, 0), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
+
+            local BindBtn = Instance.new("TextButton", Frame)
+            BindBtn.Position, BindBtn.Size, BindBtn.Font, BindBtn.Text, BindBtn.TextSize = UDim2.new(0.6, 0, 0.5, -11), UDim2.new(0.4, -8, 0, 22), Enum.Font.GothamBold, currentKey.Name, 11
+            Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 6)
+
+            WindowObj:RegisterThemeUpdater(function(theme, anim)
+                TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(Stroke, "Color", theme.Border, anim)
+                TweenColor(Label, "TextColor3", theme.Text, anim)
+                TweenColor(BindBtn, "BackgroundColor3", theme.Input, anim)
+                TweenColor(BindBtn, "TextColor3", theme.Text, anim)
+            end)
+
+            BindBtn.MouseButton1Click:Connect(function()
+                binding = true
+                BindBtn.Text = "..."
+            end)
+
+            UIS.InputBegan:Connect(function(input, gpe)
+                if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+                if binding then
+                    currentKey = input.KeyCode
+                    BindBtn.Text = currentKey.Name
+                    binding = false
+                    if onChanged then onChanged(currentKey) end
+                elseif input.KeyCode == currentKey and not isHolding then
+                    isHolding = true
+                    holdThread = task.spawn(function()
+                        while isHolding do
+                            if loopCallback then pcall(loopCallback) end
+                            task.wait(loopInterval or 0.1)
+                        end
+                    end)
+                end
+            end)
+
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey then
+                    isHolding = false
+                    if holdThread then
+                        pcall(task.cancel, holdThread)
+                        holdThread = nil
+                    end
+                end
+            end)
+        end
+
+        -- 3. КЕЙБИНД "ЗАЖАЛ - СКРИПТ A / ОТПУСТИЛ - СКРИПТ B"
+        function TabObj:AddPressReleaseKeybind(name, defaultKey, onPress, onRelease, onChanged)
+            local currentKey = defaultKey or Enum.KeyCode.E
+            local binding = false
+            local isPressed = false
+
+            local Frame = Instance.new("Frame", ContentFrame)
+            Frame.Size = UDim2.new(1, 0, 0, 34)
+            Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+            local Stroke = Instance.new("UIStroke", Frame)
+
+            local Label = Instance.new("TextLabel", Frame)
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.6, 0, 1, 0), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
+
+            local BindBtn = Instance.new("TextButton", Frame)
+            BindBtn.Position, BindBtn.Size, BindBtn.Font, BindBtn.Text, BindBtn.TextSize = UDim2.new(0.6, 0, 0.5, -11), UDim2.new(0.4, -8, 0, 22), Enum.Font.GothamBold, currentKey.Name, 11
+            Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 6)
+
+            WindowObj:RegisterThemeUpdater(function(theme, anim)
+                TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(Stroke, "Color", theme.Border, anim)
+                TweenColor(Label, "TextColor3", theme.Text, anim)
+                TweenColor(BindBtn, "BackgroundColor3", theme.Input, anim)
+                TweenColor(BindBtn, "TextColor3", theme.Text, anim)
+            end)
+
+            BindBtn.MouseButton1Click:Connect(function()
+                binding = true
+                BindBtn.Text = "..."
+            end)
+
+            UIS.InputBegan:Connect(function(input, gpe)
+                if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+                if binding then
+                    currentKey = input.KeyCode
+                    BindBtn.Text = currentKey.Name
+                    binding = false
+                    if onChanged then onChanged(currentKey) end
+                elseif input.KeyCode == currentKey and not isPressed then
+                    isPressed = true
+                    if onPress then pcall(onPress, currentKey) end
+                end
+            end)
+
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey and isPressed then
+                    isPressed = false
+                    if onRelease then pcall(onRelease, currentKey) end
+                end
+            end)
+        end
+
+        -- 4. КОМБИНИРОВАННЫЙ КЕЙБИНД (Нажал A -> Цикл B -> Отпустил C)
+        function TabObj:AddHoldPressReleaseKeybind(name, defaultKey, loopInterval, onPress, holdLoop, onRelease, onChanged)
+            local currentKey = defaultKey or Enum.KeyCode.E
+            local binding = false
+            local isHolding = false
+            local holdThread = nil
+
+            local Frame = Instance.new("Frame", ContentFrame)
+            Frame.Size = UDim2.new(1, 0, 0, 34)
+            Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+            local Stroke = Instance.new("UIStroke", Frame)
+
+            local Label = Instance.new("TextLabel", Frame)
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.6, 0, 1, 0), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
+
+            local BindBtn = Instance.new("TextButton", Frame)
+            BindBtn.Position, BindBtn.Size, BindBtn.Font, BindBtn.Text, BindBtn.TextSize = UDim2.new(0.6, 0, 0.5, -11), UDim2.new(0.4, -8, 0, 22), Enum.Font.GothamBold, currentKey.Name, 11
+            Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 6)
+
+            WindowObj:RegisterThemeUpdater(function(theme, anim)
+                TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(Stroke, "Color", theme.Border, anim)
+                TweenColor(Label, "TextColor3", theme.Text, anim)
+                TweenColor(BindBtn, "BackgroundColor3", theme.Input, anim)
+                TweenColor(BindBtn, "TextColor3", theme.Text, anim)
+            end)
+
+            BindBtn.MouseButton1Click:Connect(function()
+                binding = true
+                BindBtn.Text = "..."
+            end)
+
+            UIS.InputBegan:Connect(function(input, gpe)
+                if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+                if binding then
+                    currentKey = input.KeyCode
+                    BindBtn.Text = currentKey.Name
+                    binding = false
+                    if onChanged then onChanged(currentKey) end
+                elseif input.KeyCode == currentKey and not isHolding then
+                    isHolding = true
+
+                    -- 1. Скрипт A: Нажал
+                    if onPress then pcall(onPress, currentKey) end
+
+                    -- 2. Скрипт B: Цикл удержания
+                    if holdLoop then
+                        holdThread = task.spawn(function()
+                            while isHolding do
+                                pcall(holdLoop)
+                                task.wait(loopInterval or 0.1)
+                            end
+                        end)
+                    end
+                end
+            end)
+
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey and isHolding then
+                    isHolding = false
+
+                    -- Останавливаем цикл
+                    if holdThread then
+                        pcall(task.cancel, holdThread)
+                        holdThread = nil
+                    end
+
+                    -- 3. Скрипт C: Отпустил
+                    if onRelease then pcall(onRelease, currentKey) end
                 end
             end)
         end
@@ -709,9 +935,9 @@ function Library:CreateWindow(hubTitle)
             WindowObj:SetTheme(val)
         end)
 
-        SettingsTab:AddKeybind("Клавиша скрытия GUI", selectedToggleKey, function(key)
-            selectedToggleKey = key
-            WindowObj.ToggleKey = key
+        SettingsTab:AddKeybind("Клавиша скрытия GUI", selectedToggleKey, nil, function(newKey)
+            selectedToggleKey = newKey
+            WindowObj.ToggleKey = newKey
         end)
 
         SettingsTab:AddButton("Сохранить настройки", function()
