@@ -24,8 +24,12 @@ local CONFIG_FILE = "OwnerHub/config.json"
 
 local function SaveConfig(data)
     pcall(function()
-        if isfolder and not isfolder(CONFIG_FOLDER) and makefolder then makefolder(CONFIG_FOLDER) end
-        if writefile then writefile(CONFIG_FILE, HttpService:JSONEncode(data)) end
+        if isfolder and not isfolder(CONFIG_FOLDER) and makefolder then 
+            makefolder(CONFIG_FOLDER) 
+        end
+        if writefile then 
+            writefile(CONFIG_FILE, HttpService:JSONEncode(data)) 
+        end
     end)
 end
 
@@ -33,10 +37,10 @@ local function LoadConfig()
     local result = nil
     pcall(function()
         if isfolder and isfolder(CONFIG_FOLDER) and isfile and isfile(CONFIG_FILE) and readfile then
-            result = HttpService:JSONEncode(readfile(CONFIG_FILE))
+            result = HttpService:JSONDecode(readfile(CONFIG_FILE))
         end
     end)
-    return result or {}
+    return type(result) == "table" and result or {}
 end
 
 local function ColorToHex(color)
