@@ -1008,6 +1008,21 @@ function Library:CreateWindow(hubTitle)
             Library:Notify("ГРАФИКА", state and "3D-рендер отключен." or "3D-рендер включен.", 2)
         end)
 
+        MainTab:AddButton("Перезайти", function()
+            local TeleportService = game:GetService("TeleportService")
+            local Players = game:GetService("Players")
+            
+            Library:Notify("REJOIN", "Перезаходим на сервер...", 3)
+            
+            if #Players:GetPlayers() <= 1 then
+                Players.LocalPlayer:Kick("\nRejoining...")
+                wait()
+                TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+            else
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
+            end
+        end)
+
         return SettingsTab
     end
 
