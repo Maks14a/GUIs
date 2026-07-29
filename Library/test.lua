@@ -1,5 +1,5 @@
 -- ========================================================
---     OWNER HUB GUI LIBRARY v5.1 (SMOOTH THEMES & AUTO-SETTINGS)
+--  OWNER HUB GUI LIBRARY v5.3 (FIXED KEYBIND SYSTEM)
 -- ========================================================
 local Library = {}
 
@@ -100,6 +100,9 @@ function Library:CreateWindow(hubTitle)
 
     local savedConfig = LoadConfig()
     local themeName = savedConfig.Theme or "Emerald"
+    local toggleKeyName = savedConfig.ToggleKey or "RightControl"
+    local initialToggleKey = Enum.KeyCode[toggleKeyName] or Enum.KeyCode.RightControl
+
     local C = Library.Themes[themeName] or Library.Themes.Emerald
     Library.CurrentTheme = C
 
@@ -118,7 +121,15 @@ function Library:CreateWindow(hubTitle)
     local MainStroke = Instance.new("UIStroke", MainFrame)
     MainStroke.Color, MainStroke.Thickness, MainStroke.Transparency = C.Accent, 1.5, 0.2
 
-    -- Перетаскивание
+    local WindowToggleKey = initialToggleKey
+    UIS.InputBegan:Connect(function(input, gpe)
+        if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
+            if input.KeyCode == WindowToggleKey then
+                MainFrame.Visible = not MainFrame.Visible
+            end
+        end
+    end)
+
     local dragging, dragStart, startPos
     MainFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -137,7 +148,6 @@ function Library:CreateWindow(hubTitle)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- ХЕДЕР
     local Header = Instance.new("Frame", MainFrame)
     Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 42)
 
@@ -147,12 +157,11 @@ function Library:CreateWindow(hubTitle)
 
     local function updateTitleText(theme)
         local hex = ColorToHex(theme.Accent)
-        TitleLabel.Text = (hubTitle or "OWNER HUB") .. string.format(" <font color=\"%s\">v5.1</font>", hex)
+        TitleLabel.Text = (hubTitle or "OWNER HUB") .. string.format(" <font color=\"%s\">v5.3</font>", hex)
         TitleLabel.TextColor3 = theme.Text
     end
     updateTitleText(C)
 
-    -- КНОПКИ СВЕРНУТЬ И ЗАКРЫТЬ
     local ControlHolder = Instance.new("Frame", Header)
     ControlHolder.BackgroundTransparency, ControlHolder.Position, ControlHolder.Size = 1, UDim2.new(1, -70, 0, 8), UDim2.new(0, 60, 0, 26)
 
@@ -168,7 +177,6 @@ function Library:CreateWindow(hubTitle)
     Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
     local CloseStroke = Instance.new("UIStroke", CloseBtn)
 
-    -- САЙДБАР И КОНТЕЙНЕР
     local Sidebar = Instance.new("ScrollingFrame", MainFrame)
     Sidebar.Name, Sidebar.BackgroundTransparency, Sidebar.Position, Sidebar.Size = "Sidebar", 1, UDim2.new(0, 12, 0, 48), UDim2.new(0, 135, 1, -60)
     Sidebar.CanvasSize, Sidebar.AutomaticCanvasSize, Sidebar.ScrollBarThickness = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 0
@@ -179,7 +187,6 @@ function Library:CreateWindow(hubTitle)
     local ContainerFolder = Instance.new("Frame", MainFrame)
     ContainerFolder.Name, ContainerFolder.BackgroundTransparency, ContainerFolder.Position, ContainerFolder.Size = "Containers", 1, UDim2.new(0, 155, 0, 48), UDim2.new(1, -167, 1, -60)
 
-    -- МОДАЛЬНОЕ ОКНО (ЗАКРЫТИЕ)
     local ModalOverlay = Instance.new("Frame", MainFrame)
     ModalOverlay.Name, ModalOverlay.Size, ModalOverlay.Position = "ModalOverlay", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0)
     ModalOverlay.BackgroundColor3, ModalOverlay.BackgroundTransparency, ModalOverlay.ZIndex, ModalOverlay.Visible = Color3.fromRGB(0, 0, 0), 1, 100, false
@@ -213,11 +220,11 @@ function Library:CreateWindow(hubTitle)
         Tabs = {},
         ActiveTab = nil,
         CurrentThemeName = themeName,
+        ToggleKey = WindowToggleKey,
         ThemeUpdaters = {},
         IsMinimized = false
     }
 
-    -- Плавный обработчик тем без утечек памяти
     function WindowObj:RegisterThemeUpdater(fn)
         table.insert(WindowObj.ThemeUpdaters, fn)
         fn(Library.CurrentTheme, false)
@@ -243,13 +250,10 @@ function Library:CreateWindow(hubTitle)
 
             updateTitleText(newC)
 
-            -- Очистка старых/удаленных функций из таблицы тем (Фикс лагов)
             local validUpdaters = {}
             for _, fn in ipairs(WindowObj.ThemeUpdaters) do
                 local success = pcall(fn, newC, true)
-                if success then
-                    table.insert(validUpdaters, fn)
-                end
+                if success then table.insert(validUpdaters, fn) end
             end
             WindowObj.ThemeUpdaters = validUpdaters
         end
@@ -293,7 +297,6 @@ function Library:CreateWindow(hubTitle)
         Library:Notify("ВЫГРУЗКА", "Скрипт успешно выгружен.", 3)
     end)
 
-    -- СОЗДАНИЕ ВКАДОК
     function WindowObj:CreateTab(tabName)
         local TabBtn = Instance.new("TextButton", Sidebar)
         TabBtn.Name = tabName .. "_TabBtn"
@@ -341,9 +344,6 @@ function Library:CreateWindow(hubTitle)
 
         if #WindowObj.Tabs == 1 then ActivateTab() end
 
-        ----------------------------------------------------
-        -- КОМПОНЕНТЫ
-        ----------------------------------------------------
         function TabObj:AddSection(text)
             local Frame = Instance.new("Frame", ContentFrame)
             Frame.BackgroundTransparency, Frame.Size = 1, UDim2.new(1, 0, 0, 22)
@@ -653,19 +653,19 @@ function Library:CreateWindow(hubTitle)
         function TabObj:AddKeybind(name, defaultKey, callback)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
-        
+
             local Frame = Instance.new("Frame", ContentFrame)
             Frame.Size = UDim2.new(1, 0, 0, 34)
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
             local Stroke = Instance.new("UIStroke", Frame)
-        
+
             local Label = Instance.new("TextLabel", Frame)
             Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.6, 0, 1, 0), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
-        
+
             local BindBtn = Instance.new("TextButton", Frame)
             BindBtn.Position, BindBtn.Size, BindBtn.Font, BindBtn.Text, BindBtn.TextSize = UDim2.new(0.6, 0, 0.5, -11), UDim2.new(0.4, -8, 0, 22), Enum.Font.GothamBold, currentKey.Name, 11
             Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 6)
-        
+
             WindowObj:RegisterThemeUpdater(function(theme, anim)
                 TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
                 TweenColor(Stroke, "Color", theme.Border, anim)
@@ -673,25 +673,21 @@ function Library:CreateWindow(hubTitle)
                 TweenColor(BindBtn, "BackgroundColor3", theme.Input, anim)
                 TweenColor(BindBtn, "TextColor3", theme.Text, anim)
             end)
-        
-            -- Режим ожидания нажатия
+
             BindBtn.MouseButton1Click:Connect(function()
                 binding = true
                 BindBtn.Text = "..."
             end)
-        
-            -- Единый обработчик ввода
+
             UIS.InputBegan:Connect(function(input, gpe)
-                if gpe then return end -- Игнорируем, если игрок пишет в чат
+                if gpe then return end
                 if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-        
+
                 if binding then
-                    -- 1. Только записываем новую клавишу (без вызова callback)
                     currentKey = input.KeyCode
                     BindBtn.Text = currentKey.Name
                     binding = false
                 elseif input.KeyCode == currentKey then
-                    -- 2. Нажали назначенную клавишу во время игры -> запускаем скрипт
                     if callback then callback(currentKey) end
                 end
             end)
@@ -700,28 +696,34 @@ function Library:CreateWindow(hubTitle)
         return TabObj
     end
 
-    -- ========================================================
-    -- ЕДИНАЯ СТАНДАРТНАЯ ВКЛАДКА НАСТРОЕК (SETTINGS)
-    -- ========================================================
     function WindowObj:CreateSettingsTab()
         local SettingsTab = WindowObj:CreateTab("Settings")
 
-        SettingsTab:AddSection("Оформление")
+        SettingsTab:AddSection("Оформление и Управление")
         
         local selectedTheme = WindowObj.CurrentThemeName
+        local selectedToggleKey = WindowObj.ToggleKey
+
         SettingsTab:AddDropdown("Тема GUI", {"Emerald", "Ruby", "Sapphire", "Amethyst", "Amber"}, selectedTheme, function(val)
             selectedTheme = val
-            WindowObj:SetTheme(val) -- Моментальный смуф-превью
+            WindowObj:SetTheme(val)
+        end)
+
+        SettingsTab:AddKeybind("Клавиша скрытия GUI", selectedToggleKey, function(key)
+            selectedToggleKey = key
+            WindowObj.ToggleKey = key
         end)
 
         SettingsTab:AddButton("Сохранить настройки", function()
-            SaveConfig({ Theme = selectedTheme })
-            Library:Notify("НАСТРОЙКИ", "Текущая тема («" .. selectedTheme .. "») сохранена!", 2.5)
+            SaveConfig({ 
+                Theme = selectedTheme,
+                ToggleKey = selectedToggleKey.Name 
+            })
+            Library:Notify("НАСТРОЙКИ", "Тема («" .. selectedTheme .. "») и бинд («" .. selectedToggleKey.Name .. "») сохранены!", 2.5)
         end)
 
         SettingsTab:AddSection("Система и АФК")
 
-        -- Встроенная рабочая логика Анти-АФК
         local antiAfkConn = nil
         SettingsTab:AddToggle("Анти-АФК", true, function(state)
             if state then
@@ -739,10 +741,9 @@ function Library:CreateWindow(hubTitle)
             end
         end)
 
-        -- Встроенная рабочая логика отключения 3D Рендера
         SettingsTab:AddToggle("Отключить 3D Рендер", false, function(state)
             RunService:Set3dRenderingEnabled(not state)
-            Library:Notify("ГРАФИКА", state and "3D-рендер отключен (экономия ресурсов)." or "3D-рендер включен.", 2)
+            Library:Notify("ГРАФИКА", state and "3D-рендер отключен." or "3D-рендер включен.", 2)
         end)
 
         return SettingsTab
