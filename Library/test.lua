@@ -1,5 +1,5 @@
 -- ========================================================
---         OWNER HUB GUI LIBRARY v4.0 (MODERN TABS)
+--         OWNER HUB GUI LIBRARY v5.0 (HORIZONTAL + THEMES)
 -- ========================================================
 local Library = {}
 
@@ -9,13 +9,13 @@ local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
--- Базовые темы
+-- Готовые цветовые палитры (Полный перекрас интерфейса)
 Library.Themes = {
-    Emerald  = { Accent = Color3.fromRGB(16, 185, 129),  BG = Color3.fromRGB(15, 17, 21),  Card = Color3.fromRGB(24, 27, 34),  Input = Color3.fromRGB(33, 37, 47), Text = Color3.fromRGB(240, 242, 245), Border = Color3.fromRGB(45, 52, 65) },
-    Ruby     = { Accent = Color3.fromRGB(239, 68, 68),   BG = Color3.fromRGB(20, 15, 17),  Card = Color3.fromRGB(34, 24, 27),  Input = Color3.fromRGB(47, 33, 37), Text = Color3.fromRGB(245, 240, 242), Border = Color3.fromRGB(65, 45, 52) },
-    Sapphire = { Accent = Color3.fromRGB(59, 130, 246),  BG = Color3.fromRGB(15, 18, 24),  Card = Color3.fromRGB(24, 29, 39),  Input = Color3.fromRGB(33, 40, 54), Text = Color3.fromRGB(240, 244, 248), Border = Color3.fromRGB(45, 55, 75) },
-    Amethyst = { Accent = Color3.fromRGB(168, 85, 247),  BG = Color3.fromRGB(18, 15, 24),  Card = Color3.fromRGB(28, 24, 39),  Input = Color3.fromRGB(39, 33, 54), Text = Color3.fromRGB(244, 240, 248), Border = Color3.fromRGB(55, 45, 75) },
-    Amber    = { Accent = Color3.fromRGB(245, 158, 11),  BG = Color3.fromRGB(20, 18, 15),  Card = Color3.fromRGB(34, 29, 24),  Input = Color3.fromRGB(47, 40, 33), Text = Color3.fromRGB(248, 244, 240), Border = Color3.fromRGB(65, 55, 45) }
+    Emerald  = { Accent = Color3.fromRGB(16, 185, 129), BG = Color3.fromRGB(15, 17, 21),  Card = Color3.fromRGB(24, 27, 34),  Input = Color3.fromRGB(33, 37, 47), Text = Color3.fromRGB(240, 242, 245), Border = Color3.fromRGB(45, 52, 65),  Off = Color3.fromRGB(42, 47, 60) },
+    Ruby     = { Accent = Color3.fromRGB(239, 68, 68),  BG = Color3.fromRGB(20, 14, 16),  Card = Color3.fromRGB(32, 22, 26),  Input = Color3.fromRGB(45, 30, 35), Text = Color3.fromRGB(250, 240, 242), Border = Color3.fromRGB(65, 40, 48),  Off = Color3.fromRGB(50, 35, 40) },
+    Sapphire = { Accent = Color3.fromRGB(59, 130, 246), BG = Color3.fromRGB(14, 17, 24),  Card = Color3.fromRGB(22, 27, 39),  Input = Color3.fromRGB(30, 38, 54), Text = Color3.fromRGB(240, 245, 255), Border = Color3.fromRGB(40, 52, 75),  Off = Color3.fromRGB(35, 45, 60) },
+    Amethyst = { Accent = Color3.fromRGB(168, 85, 247), BG = Color3.fromRGB(18, 14, 24),  Card = Color3.fromRGB(28, 22, 39),  Input = Color3.fromRGB(39, 30, 54), Text = Color3.fromRGB(245, 240, 255), Border = Color3.fromRGB(55, 40, 75),  Off = Color3.fromRGB(45, 35, 60) },
+    Amber    = { Accent = Color3.fromRGB(245, 158, 11), BG = Color3.fromRGB(20, 17, 14),  Card = Color3.fromRGB(34, 27, 22),  Input = Color3.fromRGB(47, 38, 30), Text = Color3.fromRGB(255, 245, 240), Border = Color3.fromRGB(65, 52, 40),  Off = Color3.fromRGB(50, 42, 35) }
 }
 
 -- Работа с Файловой Системой Эксплойта
@@ -37,7 +37,7 @@ local function LoadConfig()
     local result = nil
     pcall(function()
         if isfolder and isfolder(CONFIG_FOLDER) and isfile and isfile(CONFIG_FILE) and readfile then
-            result = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            result = HttpService:JSONEncode(readfile(CONFIG_FILE))
         end
     end)
     return result or {}
@@ -56,15 +56,16 @@ function Library:Notify(titleText, msgText, duration)
         NotifGui.Parent = CoreGui
     end
 
+    local C = Library.CurrentTheme or Library.Themes.Emerald
     local Card = Instance.new("Frame", NotifGui)
     Card.Size = UDim2.new(0, 300, 0, 60)
     Card.Position = UDim2.new(0.5, -150, 0, -80)
-    Card.BackgroundColor3 = Color3.fromRGB(24, 27, 34)
+    Card.BackgroundColor3 = C.Card
     Card.ClipsDescendants = true
     Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 12)
 
     local Stroke = Instance.new("UIStroke", Card)
-    Stroke.Color = Library.CurrentTheme and Library.CurrentTheme.Accent or Color3.fromRGB(16, 185, 129)
+    Stroke.Color = C.Accent
     Stroke.Thickness = 1.5
 
     local Title = Instance.new("TextLabel", Card)
@@ -73,7 +74,7 @@ function Library:Notify(titleText, msgText, duration)
     Title.BackgroundTransparency = 1
     Title.Font = Enum.Font.GothamBold
     Title.Text = titleText or "УВЕДОМЛЕНИЕ"
-    Title.TextColor3 = Stroke.Color
+    Title.TextColor3 = C.Accent
     Title.TextSize = 14
 
     local Msg = Instance.new("TextLabel", Card)
@@ -82,7 +83,7 @@ function Library:Notify(titleText, msgText, duration)
     Msg.BackgroundTransparency = 1
     Msg.Font = Enum.Font.GothamMedium
     Msg.Text = msgText or ""
-    Msg.TextColor3 = Color3.fromRGB(240, 242, 245)
+    Msg.TextColor3 = C.Text
     Msg.TextSize = 12
 
     TS:Create(Card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -111,11 +112,12 @@ function Library:CreateWindow(hubTitle)
     local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"))
     ScreenGui.Name, ScreenGui.ResetOnSpawn = "OwnerHub_Core", false
 
+    -- ГОРИЗОНТАЛЬНЫЙ РАЗМЕР (560x350)
     local MainFrame = Instance.new("CanvasGroup", ScreenGui)
     MainFrame.Name = "MainFrame"
     MainFrame.BackgroundColor3 = C.BG
-    MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
-    MainFrame.Size = UDim2.new(0, 310, 0, 530)
+    MainFrame.Position = UDim2.new(0.15, 0, 0.25, 0)
+    MainFrame.Size = UDim2.new(0, 560, 0, 350)
     MainFrame.ClipsDescendants = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
 
@@ -168,61 +170,75 @@ function Library:CreateWindow(hubTitle)
         end
     end)
 
-    -- Шапка
+    -- Верхняя шапка
     local Header = Instance.new("Frame", MainFrame)
-    Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 42)
+    Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 40)
     local Title = Instance.new("TextLabel", Header)
     Title.BackgroundTransparency, Title.Position, Title.Size, Title.Font, Title.Text, Title.RichText, Title.TextColor3, Title.TextSize, Title.TextXAlignment = 1, UDim2.new(0, 14, 0, 0), UDim2.new(1, -28, 1, 0), Enum.Font.GothamBold, hubTitle or "OWNER HUB", true, C.Text, 15, Enum.TextXAlignment.Left
 
-    -- Панель Табов (Вкладок)
-    local TabBar = Instance.new("ScrollingFrame", MainFrame)
-    TabBar.Name = "TabBar"
-    TabBar.BackgroundTransparency = 1
-    TabBar.Position = UDim2.new(0, 10, 0, 42)
-    TabBar.Size = UDim2.new(1, -20, 0, 34)
-    TabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
-    TabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
-    TabBar.ScrollBarThickness = 0
+    -- БОКОВАЯ ПАНЕЛЬ ТАБОВ (LEFT SIDEBAR)
+    local Sidebar = Instance.new("ScrollingFrame", MainFrame)
+    Sidebar.Name = "Sidebar"
+    Sidebar.BackgroundTransparency = 1
+    Sidebar.Position = UDim2.new(0, 10, 0, 45)
+    Sidebar.Size = UDim2.new(0, 130, 1, -55)
+    Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Sidebar.ScrollBarThickness = 0
 
-    local TabListLayout = Instance.new("UIListLayout", TabBar)
-    TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-    TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    TabListLayout.Padding = UDim.new(0, 6)
+    local SidebarLayout = Instance.new("UIListLayout", Sidebar)
+    SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    SidebarLayout.Padding = UDim.new(0, 6)
 
-    -- Контейнер для вкладок
+    -- ПРАВАЯ ОБЛАСТЬ КОНТЕНТА (MAIN CONTAINER)
     local ContainerFolder = Instance.new("Frame", MainFrame)
     ContainerFolder.Name = "Containers"
     ContainerFolder.BackgroundTransparency = 1
-    ContainerFolder.Position = UDim2.new(0, 10, 0, 82)
-    ContainerFolder.Size = UDim2.new(1, -20, 1, -88)
+    ContainerFolder.Position = UDim2.new(0, 150, 0, 45)
+    ContainerFolder.Size = UDim2.new(1, -160, 1, -55)
 
     local WindowObj = {
         Tabs = {},
         ActiveTab = nil,
-        Elements = {},
-        CurrentThemeName = themeName
+        CurrentThemeName = themeName,
+        ThemeUpdaters = {} -- Система полной динамической смены темы
     }
 
-    -- Добавление Темы
+    -- Регистратор объектов для смены темы
+    function WindowObj:RegisterThemeUpdater(fn)
+        table.insert(WindowObj.ThemeUpdaters, fn)
+        fn(Library.CurrentTheme)
+    end
+
+    -- Метод обновления всех цветов при выборе темы
     function WindowObj:SetTheme(newThemeName)
         if Library.Themes[newThemeName] then
             WindowObj.CurrentThemeName = newThemeName
-            Library.CurrentTheme = Library.Themes[newThemeName]
-            MainStroke.Color = Library.CurrentTheme.Accent
+            local newC = Library.Themes[newThemeName]
+            Library.CurrentTheme = newC
+
+            MainFrame.BackgroundColor3 = newC.BG
+            MainStroke.Color = newC.Accent
+            Title.TextColor3 = newC.Text
+
             savedConfig.Theme = newThemeName
             SaveConfig(savedConfig)
+
+            for _, updater in ipairs(WindowObj.ThemeUpdaters) do
+                updater(newC)
+            end
+
             Library:Notify("ТЕМА ИЗМЕНЕНА", "Текущая тема: " .. newThemeName, 2)
         end
     end
 
     function WindowObj:CreateTab(tabName)
-        local TabBtn = Instance.new("TextButton", TabBar)
+        local TabBtn = Instance.new("TextButton", Sidebar)
         TabBtn.Name = tabName .. "_TabBtn"
-        TabBtn.Size = UDim2.new(0, 75, 1, 0)
-        TabBtn.AutomaticSize = Enum.AutomaticSize.X
+        TabBtn.Size = UDim2.new(1, 0, 0, 32)
         TabBtn.BackgroundColor3 = C.Card
         TabBtn.Font = Enum.Font.GothamBold
-        TabBtn.Text = "  " .. tabName .. "  "
+        TabBtn.Text = tabName
         TabBtn.TextColor3 = C.Text
         TabBtn.TextSize = 12
         TabBtn.AutoButtonColor = false
@@ -248,52 +264,76 @@ function Library:CreateWindow(hubTitle)
 
         local TabObj = { Frame = ContentFrame }
 
+        local function RefreshTabColors(theme)
+            ContentFrame.ScrollBarImageColor3 = theme.Accent
+            if WindowObj.ActiveTab == TabObj then
+                TabBtn.BackgroundColor3 = theme.Accent
+                TabBtnStroke.Color = theme.Accent
+                TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            else
+                TabBtn.BackgroundColor3 = theme.Card
+                TabBtnStroke.Color = theme.Border
+                TabBtn.TextColor3 = theme.Text
+            end
+        end
+
+        WindowObj:RegisterThemeUpdater(RefreshTabColors)
+
         local function ActivateTab()
             for _, t in pairs(WindowObj.Tabs) do
                 t.Frame.Visible = false
-                t.Btn.BackgroundColor3 = C.Card
-                t.Stroke.Color = C.Border
             end
             ContentFrame.Visible = true
-            TabBtn.BackgroundColor3 = C.Accent
-            TabBtnStroke.Color = C.Accent
             WindowObj.ActiveTab = TabObj
+            
+            for _, updater in ipairs(WindowObj.ThemeUpdaters) do
+                updater(Library.CurrentTheme)
+            end
         end
 
         TabBtn.MouseButton1Click:Connect(ActivateTab)
-        
-        table.insert(WindowObj.Tabs, { Btn = TabBtn, Frame = ContentFrame, Stroke = TabBtnStroke })
+        table.insert(WindowObj.Tabs, { Btn = TabBtn, Frame = ContentFrame, Stroke = TabBtnStroke, TabObj = TabObj })
 
         if #WindowObj.Tabs == 1 then
             ActivateTab()
         end
 
-        -- Элементы Таба
+        ----------------------------------------------------
+        -- ЭЛЕМЕНТЫ ВКАДОК
+        ----------------------------------------------------
         function TabObj:AddLabel(text, color)
             local Frame = Instance.new("Frame", ContentFrame)
             Frame.BackgroundTransparency, Frame.Size = 1, UDim2.new(1, 0, 0, 20)
 
             local Label = Instance.new("TextLabel", Frame)
-            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.RichText, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 4, 0, 0), UDim2.new(1, -8, 1, 0), Enum.Font.GothamBold, text, true, color or C.Accent, 12, Enum.TextXAlignment.Left
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.RichText, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 4, 0, 0), UDim2.new(1, -8, 1, 0), Enum.Font.GothamBold, text, true, 12, Enum.TextXAlignment.Left
+
+            WindowObj:RegisterThemeUpdater(function(theme)
+                Label.TextColor3 = color or theme.Accent
+            end)
         end
 
         function TabObj:AddButton(name, callback)
             local Button = Instance.new("TextButton", ContentFrame)
             Button.Size = UDim2.new(1, 0, 0, 36)
-            Button.BackgroundColor3 = C.Card
             Button.AutoButtonColor = false
             Button.Font = Enum.Font.GothamBold
             Button.Text = name
-            Button.TextColor3 = C.Text
             Button.TextSize = 12
             Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
             local Stroke = Instance.new("UIStroke", Button)
-            Stroke.Color = C.Border
+            Stroke.Thickness = 1
+
+            WindowObj:RegisterThemeUpdater(function(theme)
+                Button.BackgroundColor3 = theme.Card
+                Button.TextColor3 = theme.Text
+                Stroke.Color = theme.Border
+            end)
 
             Button.MouseButton1Click:Connect(function()
-                TS:Create(Button, TweenInfo.new(0.08), {BackgroundColor3 = C.Accent}):Play()
+                TS:Create(Button, TweenInfo.new(0.08), {BackgroundColor3 = Library.CurrentTheme.Accent}):Play()
                 task.delay(0.1, function()
-                    TS:Create(Button, TweenInfo.new(0.15), {BackgroundColor3 = C.Card}):Play()
+                    TS:Create(Button, TweenInfo.new(0.15), {BackgroundColor3 = Library.CurrentTheme.Card}):Play()
                 end)
                 if callback then callback() end
             end)
@@ -301,17 +341,16 @@ function Library:CreateWindow(hubTitle)
 
         function TabObj:AddToggle(name, defaultState, callback)
             local Frame = Instance.new("Frame", ContentFrame)
-            Frame.BackgroundColor3, Frame.Size = C.Card, UDim2.new(1, 0, 0, 36)
+            Frame.Size = UDim2.new(1, 0, 0, 36)
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
-            
             local Stroke = Instance.new("UIStroke", Frame)
-            Stroke.Color, Stroke.Thickness = defaultState and C.Accent or C.Border, 1
+            Stroke.Thickness = 1
 
             local Label = Instance.new("TextLabel", Frame)
-            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(1, -55, 1, 0), Enum.Font.GothamMedium, name, C.Text, 12, Enum.TextXAlignment.Left
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(1, -55, 1, 0), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
 
             local SwitchBg = Instance.new("TextButton", Frame)
-            SwitchBg.Text, SwitchBg.AutoButtonColor, SwitchBg.Position, SwitchBg.Size, SwitchBg.BackgroundColor3 = "", false, UDim2.new(1, -44, 0.5, -9), UDim2.new(0, 34, 0, 18), defaultState and C.Accent or Color3.fromRGB(42, 47, 60)
+            SwitchBg.Text, SwitchBg.AutoButtonColor, SwitchBg.Position, SwitchBg.Size = "", false, UDim2.new(1, -44, 0.5, -9), UDim2.new(0, 34, 0, 18)
             Instance.new("UICorner", SwitchBg).CornerRadius = UDim.new(1, 0)
 
             local Circle = Instance.new("Frame", SwitchBg)
@@ -319,35 +358,52 @@ function Library:CreateWindow(hubTitle)
             Instance.new("UICorner", Circle).CornerRadius = UDim.new(1, 0)
 
             local state = defaultState
+
+            local function applyStateColors(theme)
+                theme = theme or Library.CurrentTheme
+                Frame.BackgroundColor3 = theme.Card
+                Label.TextColor3 = theme.Text
+                Circle.Position = state and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+                SwitchBg.BackgroundColor3 = state and theme.Accent or theme.Off
+                Stroke.Color = state and theme.Accent or theme.Border
+            end
+
+            WindowObj:RegisterThemeUpdater(applyStateColors)
+
             local function updateState(newState)
                 state = newState
                 TS:Create(Circle, TweenInfo.new(0.15), {Position = state and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play()
-                TS:Create(SwitchBg, TweenInfo.new(0.15), {BackgroundColor3 = state and C.Accent or Color3.fromRGB(42, 47, 60)}):Play()
-                TS:Create(Stroke, TweenInfo.new(0.15), {Color = state and C.Accent or C.Border}):Play()
+                TS:Create(SwitchBg, TweenInfo.new(0.15), {BackgroundColor3 = state and Library.CurrentTheme.Accent or Library.CurrentTheme.Off}):Play()
+                TS:Create(Stroke, TweenInfo.new(0.15), {Color = state and Library.CurrentTheme.Accent or Library.CurrentTheme.Border}):Play()
                 if callback then callback(state) end
             end
 
-            SwitchBg.MouseButton1Click:Connect(function()
-                updateState(not state)
-            end)
+            SwitchBg.MouseButton1Click:Connect(function() updateState(not state) end)
 
-            return {
-                Set = function(_, val) updateState(val) end
-            }
+            return { Set = function(_, val) updateState(val) end }
         end
 
         function TabObj:AddInput(labelText, defaultText, callback)
             local Frame = Instance.new("Frame", ContentFrame)
-            Frame.BackgroundColor3, Frame.Size = C.Card, UDim2.new(1, 0, 0, 36)
+            Frame.Size = UDim2.new(1, 0, 0, 36)
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
-            Instance.new("UIStroke", Frame).Color = C.Border
+            local FrameStroke = Instance.new("UIStroke", Frame)
 
             local Label = Instance.new("TextLabel", Frame)
-            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.5, 0, 1, 0), Enum.Font.GothamMedium, labelText, C.Text, 12, Enum.TextXAlignment.Left
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.5, 0, 1, 0), Enum.Font.GothamMedium, labelText, 12, Enum.TextXAlignment.Left
 
             local Box = Instance.new("TextBox", Frame)
-            Box.BackgroundColor3, Box.Position, Box.Size, Box.Font, Box.Text, Box.TextColor3, Box.TextSize, Box.ClearTextOnFocus = C.Input, UDim2.new(0.5, 0, 0.5, -10), UDim2.new(0.5, -8, 0, 20), Enum.Font.GothamBold, defaultText, C.Text, 11, false
+            Box.Position, Box.Size, Box.Font, Box.Text, Box.TextSize, Box.ClearTextOnFocus = UDim2.new(0.5, 0, 0.5, -10), UDim2.new(0.5, -8, 0, 20), Enum.Font.GothamBold, defaultText, 11, false
             Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 6)
+
+            WindowObj:RegisterThemeUpdater(function(theme)
+                Frame.BackgroundColor3 = theme.Card
+                FrameStroke.Color = theme.Border
+                Label.TextColor3 = theme.Text
+                Box.BackgroundColor3 = theme.Input
+                Box.TextColor3 = theme.Text
+            end)
+
             Box.FocusLost:Connect(function() if callback then callback(Box.Text) end end)
         end
 
@@ -356,16 +412,16 @@ function Library:CreateWindow(hubTitle)
             local selected = default or list[1] or "Ничего"
 
             local Frame = Instance.new("Frame", ContentFrame)
-            Frame.BackgroundColor3, Frame.Size = C.Card, UDim2.new(1, 0, 0, 36)
+            Frame.Size = UDim2.new(1, 0, 0, 36)
             Frame.ClipsDescendants = true
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
-            Instance.new("UIStroke", Frame).Color = C.Border
+            local FrameStroke = Instance.new("UIStroke", Frame)
 
             local Label = Instance.new("TextLabel", Frame)
-            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.45, 0, 0, 36), Enum.Font.GothamMedium, name, C.Text, 12, Enum.TextXAlignment.Left
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.45, 0, 0, 36), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
 
             local DropBtn = Instance.new("TextButton", Frame)
-            DropBtn.BackgroundColor3, DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextColor3, DropBtn.TextSize = C.Input, UDim2.new(0.45, 0, 0, 7), UDim2.new(0.55, -6, 0, 22), Enum.Font.GothamBold, tostring(selected) .. "  ▼", C.Text, 11
+            DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextSize = UDim2.new(0.45, 0, 0, 7), UDim2.new(0.55, -6, 0, 22), Enum.Font.GothamBold, tostring(selected) .. "  ▼", 11
             DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
             Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
 
@@ -374,11 +430,19 @@ function Library:CreateWindow(hubTitle)
             DropHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
             DropHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
             DropHolder.ScrollBarThickness = 3
-            DropHolder.ScrollBarImageColor3 = C.Accent
             DropHolder.BorderSizePixel = 0
 
             local ListLayout = Instance.new("UIListLayout", DropHolder)
             ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
+
+            WindowObj:RegisterThemeUpdater(function(theme)
+                Frame.BackgroundColor3 = theme.Card
+                FrameStroke.Color = theme.Border
+                Label.TextColor3 = theme.Text
+                DropBtn.BackgroundColor3 = theme.Input
+                DropBtn.TextColor3 = theme.Text
+                DropHolder.ScrollBarImageColor3 = theme.Accent
+            end)
 
             local isOpen = false
             local function toggleDrop()
@@ -397,9 +461,14 @@ function Library:CreateWindow(hubTitle)
                 end
                 for _, option in ipairs(list) do
                     local Btn = Instance.new("TextButton", DropHolder)
-                    Btn.BackgroundColor3, Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = C.Input, UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), C.Text, 11
+                    Btn.Size, Btn.Font, Btn.Text, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11
                     Btn.TextTruncate = Enum.TextTruncate.AtEnd
                     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+
+                    WindowObj:RegisterThemeUpdater(function(theme)
+                        Btn.BackgroundColor3 = theme.Input
+                        Btn.TextColor3 = theme.Text
+                    end)
 
                     Btn.MouseButton1Click:Connect(function()
                         selected = option
@@ -428,16 +497,16 @@ function Library:CreateWindow(hubTitle)
             local selectedMap = {}
 
             local Frame = Instance.new("Frame", ContentFrame)
-            Frame.BackgroundColor3, Frame.Size = C.Card, UDim2.new(1, 0, 0, 36)
+            Frame.Size = UDim2.new(1, 0, 0, 36)
             Frame.ClipsDescendants = true
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
-            Instance.new("UIStroke", Frame).Color = C.Border
+            local FrameStroke = Instance.new("UIStroke", Frame)
 
             local Label = Instance.new("TextLabel", Frame)
-            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextColor3, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.45, 0, 0, 36), Enum.Font.GothamMedium, name, C.Text, 12, Enum.TextXAlignment.Left
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.45, 0, 0, 36), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
 
             local DropBtn = Instance.new("TextButton", Frame)
-            DropBtn.BackgroundColor3, DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextColor3, DropBtn.TextSize = C.Input, UDim2.new(0.45, 0, 0, 7), UDim2.new(0.55, -6, 0, 22), Enum.Font.GothamBold, "Выбрано: 0  ▼", C.Text, 11
+            DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextSize = UDim2.new(0.45, 0, 0, 7), UDim2.new(0.55, -6, 0, 22), Enum.Font.GothamBold, "Выбрано: 0  ▼", 11
             DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
             Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
 
@@ -446,11 +515,19 @@ function Library:CreateWindow(hubTitle)
             DropHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
             DropHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
             DropHolder.ScrollBarThickness = 3
-            DropHolder.ScrollBarImageColor3 = C.Accent
             DropHolder.BorderSizePixel = 0
 
             local ListLayout = Instance.new("UIListLayout", DropHolder)
             ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
+
+            WindowObj:RegisterThemeUpdater(function(theme)
+                Frame.BackgroundColor3 = theme.Card
+                FrameStroke.Color = theme.Border
+                Label.TextColor3 = theme.Text
+                DropBtn.BackgroundColor3 = theme.Input
+                DropBtn.TextColor3 = theme.Text
+                DropHolder.ScrollBarImageColor3 = theme.Accent
+            end)
 
             local isOpen = false
             local function toggleDrop()
@@ -474,21 +551,26 @@ function Library:CreateWindow(hubTitle)
                     if c:IsA("TextButton") then c:Destroy() end
                 end
                 for _, option in ipairs(list) do
-                    local isSelected = selectedMap[option] or false
                     local Btn = Instance.new("TextButton", DropHolder)
-                    Btn.BackgroundColor3 = isSelected and C.Accent or C.Input
-                    Btn.Size, Btn.Font, Btn.Text, Btn.TextColor3, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), C.Text, 11
+                    Btn.Size, Btn.Font, Btn.Text, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11
                     Btn.TextTruncate = Enum.TextTruncate.AtEnd
                     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+
+                    local function applyBtnColor(theme)
+                        theme = theme or Library.CurrentTheme
+                        Btn.BackgroundColor3 = selectedMap[option] and theme.Accent or theme.Input
+                        Btn.TextColor3 = theme.Text
+                    end
+
+                    WindowObj:RegisterThemeUpdater(applyBtnColor)
 
                     Btn.MouseButton1Click:Connect(function()
                         if selectedMap[option] then
                             selectedMap[option] = nil
-                            Btn.BackgroundColor3 = C.Input
                         else
                             selectedMap[option] = true
-                            Btn.BackgroundColor3 = C.Accent
                         end
+                        applyBtnColor(Library.CurrentTheme)
                         updateTitle()
                         if callback then callback(selectedMap) end
                     end)
@@ -498,9 +580,7 @@ function Library:CreateWindow(hubTitle)
 
             buildList(list)
 
-            return {
-                Refresh = function(_, newList) buildList(newList) end
-            }
+            return { Refresh = function(_, newList) buildList(newList) end }
         end
 
         return TabObj
