@@ -70,6 +70,39 @@ end)
 -- Динамическое обновление списка из кода:
 -- MultiDrop:Refresh({"Предмет1", "Предмет2"})
 
+--- 🆕 [ Поисковый Дропдаун (SearchDropdown) ]
+-- Одиночный выбор с поисковой строкой внутри
+-- Аргументы: (Название, Список, ПоУмолчанию, Callback)
+local SearchDrop = MainTab:AddSearchDropdown("Поиск оружия", {"Sword", "Shield", "Potion", "Bow"}, "Sword", function(selected)
+    print("Выбрано через поиск:", selected)
+end)
+-- Обновление: SearchDrop:Refresh({"Axe", "Spear"}, "Axe")
+
+--- 🆕 [ Мульти-Поисковый Дропдаун (MultiSearchDropdown) ]
+-- Выбор нескольких элементов с мгновенной фильтрацией по поиску
+-- Аргументы: (Название, Список, Callback)
+local MultiSearch = MainTab:AddMultiSearchDropdown("Цели для авто-фарма", {"Goblin", "Orc", "Dragon", "Zombie"}, function(selectedMap)
+    -- selectedMap = { ["Goblin"] = true, ["Dragon"] = true }
+end)
+-- Обновление: MultiSearch:Refresh({"Skeleton", "Demon"})
+
+--- 🆕 [ Умный Плеер-Дропдаун (PlayerDropdown) ]
+-- Автоматически отслеживает вход/выход игроков (без закрытия меню и сброса)!
+-- Аргументы: (Название, МультиВыбор?, Поиск?, Callback)
+MainTab:AddPlayerDropdown("Игроки на сервере", true, true, function(selected)
+    -- Если Мульти = false: возвращает ник выбранного игрока "Player1"
+    -- Если Мульти = true: возвращает таблицу выбранных { ["Player1"] = true }
+    print("Выбранные игроки:", selected)
+end)
+
+--- 🆕 [ Выбор Цвета (Colorpicker) ]
+-- Выбор цвета с анимированными RGB-ползунками и HEX плашкой
+-- Аргументы: (Название, ЦветПоУмолчанию, Callback)
+local Picker = MainTab:AddColorpicker("Цвет ESP", Color3.fromRGB(255, 0, 0), function(newColor)
+    print("Выбран Color3:", newColor)
+end)
+-- Изменить цвет из кода: Picker:Set(Color3.fromRGB(0, 255, 0))
+
 --- [ Назначение Клавиши (Keybind) ]
 -- Аргументы: (Название, КлавишаПоУмолчанию, Callback)
 MainTab:AddKeybind("Активация боя", Enum.KeyCode.E, function(key)
@@ -77,63 +110,32 @@ MainTab:AddKeybind("Активация боя", Enum.KeyCode.E, function(key)
 end)
 
 -- ЦИКЛИЧНЫЙ КЕЙБИНД (Выполняется по кругу, пока зажата клавиша)
--- Параметры: Имя, Клавиша по умолч., Интервал цикла (сек), Функция в цикле, (Опционально: При смене кнопки)
 MainTab:AddHoldKeybind("Авто-Атака (Зажатие)", Enum.KeyCode.F, 0.1, function()
     print("⚔️ Выполняю удар/действие в цикле...")
 end, function(newKey)
     print("Клавиша авто-атаки изменена на:", newKey.Name)
 end)
 
-
 -- КЕЙБИНД ЗАЖАЛ / ОТПУСТИЛ (Скрипт A при нажатии, Скрипт B при отпускании)
--- Параметры: Имя, Клавиша по умолч., Функция Зажал (A), Функция Отпустил (B), (Опционально: При смене кнопки)
 MainTab:AddPressReleaseKeybind("Ускорение (Shift)", Enum.KeyCode.LeftShift, function()
-    -- Скрипт A (Когда ЗАЖАЛ):
     game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 32
     Library:Notify("СПРИНТ", "Ускорение включено!", 1)
 end, function()
-    -- Скрипт B (Когда ОТПУСТИЛ):
     game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
     Library:Notify("СПРИНТ", "Ускорение выключено.", 1)
 end)
 
--- МультиКейбинд
--- Параметры:
--- 1. Имя
--- 2. Клавиша по умолчанию
--- 3. Задержка цикла (в секундах)
--- 4. Функция A (НАЖАЛ — Мгновенный старт)
--- 5. Функция B (ДЕРЖИШЬ — Циклический скрипт)
--- 6. Функция C (ОТПУСТИЛ — Финал/Сброс)
--- 7. (Опционально) Функция при смене клавиши
-
+-- МУЛЬТИКЕЙБИНД (Нажал -> Держишь -> Отпустил)
 MainTab:AddHoldPressReleaseKeybind(
     "Зарядная пушка (Комбо)", 
     Enum.KeyCode.G, 
-    0.2, -- Задержка цикла удержания
-
-    -- 🔴 Скрипт A: Мгновенно при НАЖАТИИ
-    function()
-        print("⚡ [A] Начат заряд энергии! Включаем звук/анимацию...")
-        Library:Notify("ЗАРЯДКА", "Зарядка началась!", 1)
-    end,
-
-    -- 🟡 Скрипт B: В ЦИКЛЕ, пока клавиша зажата
-    function()
-        print("🔥 [B] Накапливаем +10 энергии в цикле...")
-    end,
-
-    -- 🟢 Скрипт C: Мгновенно при ОТПУСКАНИИ
-    function()
-        print("💥 [C] ВЫСТРЕЛ! Сбрасываем заряд.")
-        Library:Notify("ВЫСТРЕЛ", "Заряд выпущен!", 1)
-    end,
-
-    -- При смене кнопки
-    function(newKey)
-        print("Бинд изменен на:", newKey.Name)
-    end
+    0.2,
+    function() print("⚡ [A] Начат заряд энергии!") end,
+    function() print("🔥 [B] Накапливаем +10 энергии в цикле...") end,
+    function() print("💥 [C] ВЫСТРЕЛ! Сбрасываем заряд.") end,
+    function(newKey) print("Бинд изменен на:", newKey.Name) end
 )
+
 
 -- ========================================================
 -- 5. ВСПОМОГАТЕЛЬНЫЕ И ГЛОБАЛЬНЫЕ ФУНКЦИИ
@@ -142,6 +144,18 @@ MainTab:AddHoldPressReleaseKeybind(
 --- [ Всплывающее Уведомление (Notification) ]
 -- Аргументы: (Заголовок, Сообщение, ДлительностьСекунд)
 Library:Notify("УСПЕХ", "Скрипт успешно подключен!", 3)
+
+--- 🆕 [ Всплывающая Подсказка при Наведении (Tooltip) ]
+-- Привязывается к абсолютно любому элементу UI и плавно следит за мышкой
+local FastBtn = MainTab:AddButton("Удалить всё", function() end)
+Library:AddTooltip(FastBtn, "Осторожно! Действие нельзя будет отменить.")
+
+--- 🆕 [ Модальное Диалоговое Окно (ShowPrompt) ]
+-- Затеняет экран и выводит модальное окно с выбором действий
+Library:ShowPrompt("Внимание!", "Вы действительно хотите сбросить настройки?", {
+    { Text = "Отмена", Primary = false, Callback = function() print("Отменено") end },
+    { Text = "Сбросить", Primary = true, Callback = function() print("Сброшено!") end }
+})
 
 --- [ Программная смена темы ]
 -- Доступные темы: "Emerald", "Ruby", "Sapphire", "Amethyst", "Amber" Важно это не обезательно использовать у нас есть все это в Window:CreateSettingsTab()
