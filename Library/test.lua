@@ -208,8 +208,25 @@ function Library:CreateWindow(hubTitle)
     Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 42)
 
     local TitleLabel = Instance.new("TextLabel", Header)
-    TitleLabel.BackgroundTransparency, TitleLabel.Position, TitleLabel.Size = 1, UDim2.new(0, 14, 0, 0), UDim2.new(1, -100, 1, 0)
-    TitleLabel.Font, TitleLabel.RichText, TitleLabel.TextSize, TitleLabel.TextXAlignment = Enum.Font.GothamBold, true, 14, Enum.TextXAlignment.Left
+    TitleLabel.BackgroundTransparency, TitleLabel.Position, TitleLabel.Size = 1, UDim2.new(0, 14, 0, 0), UDim2.new(0, 150, 1, 0)
+    TitleLabel.Font, TitleLabel.RichText, TitleLabel.TextSize, TitleLabel.TextXAlignment = Enum.Font.GothamBold, true, 13, Enum.TextXAlignment.Left
+
+    -- Поисковая строка в шапке
+    local SearchFrame = Instance.new("Frame", Header)
+    SearchFrame.Position, SearchFrame.Size = UDim2.new(0, 165, 0, 8), UDim2.new(1, -245, 0, 26)
+    SearchFrame.BackgroundColor3 = C.Input
+    Instance.new("UICorner", SearchFrame).CornerRadius = UDim.new(0, 6)
+    local SearchStroke = Instance.new("UIStroke", SearchFrame)
+    SearchStroke.Color = C.Border
+
+    local SearchIcon = Instance.new("TextLabel", SearchFrame)
+    SearchIcon.BackgroundTransparency, SearchIcon.Position, SearchIcon.Size = 1, UDim2.new(0, 6, 0, 0), UDim2.new(0, 18, 1, 0)
+    SearchIcon.Font, SearchIcon.Text, SearchIcon.TextSize, SearchIcon.TextColor3 = Enum.Font.GothamMedium, "🔍", 11, C.Text
+
+    local SearchBox = Instance.new("TextBox", SearchFrame)
+    SearchBox.BackgroundTransparency, SearchBox.Position, SearchBox.Size = 1, UDim2.new(0, 26, 0, 0), UDim2.new(1, -30, 1, 0)
+    SearchBox.Font, SearchBox.PlaceholderText, SearchBox.Text, SearchBox.TextSize, SearchBox.TextColor3, SearchBox.PlaceholderColor3 = Enum.Font.GothamMedium, "Поиск...", "", 11, C.Text, C.Off
+    SearchBox.TextXAlignment, SearchBox.ClearTextOnFocus = Enum.TextXAlignment.Left, false
 
     local function updateTitleText(theme)
         local hex = ColorToHex(theme.Accent)
@@ -238,6 +255,46 @@ function Library:CreateWindow(hubTitle)
     Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
     local CloseStroke = Instance.new("UIStroke", CloseBtn)
     CloseStroke.Color = C.Border
+
+    -- Логика глобального поиска с плавными анимациями
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local query = string.lower(SearchBox.Text)
+
+        for _, tabData in ipairs(WindowObj.Tabs) do
+            local container = tabData.Frame
+            for _, element in ipairs(container:GetChildren()) do
+                if element:IsA("Frame") or element:IsA("TextButton") then
+                    local textHolder = element:FindFirstChildOfClass("TextLabel") or (element:IsA("TextButton") and element or nil)
+                    local elementText = textHolder and string.lower(textHolder.Text) or ""
+                    
+                    -- Запоминаем оригинальную высоту элемента, если еще не сохранили
+                    if not element:GetAttribute("OriginalSizeY") then
+                        element:SetAttribute("OriginalSizeY", element.Size.Y.Offset)
+                    end
+                    local origY = element:GetAttribute("OriginalSizeY")
+
+                    local matches = (query == "") or string.find(elementText, query, 1, true)
+
+                    if matches then
+                        element.Visible = true
+                        TS:Create(element, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            Size = UDim2.new(1, 0, 0, origY)
+                        }):Play()
+                    else
+                        local tweenHide = TS:Create(element, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                            Size = UDim2.new(1, 0, 0, 0)
+                        })
+                        tweenHide:Play()
+                        tweenHide.Completed:Connect(function()
+                            if not string.find(string.lower(SearchBox.Text), query, 1, true) or query ~= "" then
+                                element.Visible = false
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end)
 
     local Sidebar = Instance.new("ScrollingFrame", MainFrame)
     Sidebar.Name, Sidebar.BackgroundTransparency, Sidebar.Position, Sidebar.Size = "Sidebar", 1, UDim2.new(0, 12, 0, 48), UDim2.new(0, 135, 1, -60)
@@ -326,6 +383,10 @@ function Library:CreateWindow(hubTitle)
         TweenColor(CloseBtn, "BackgroundColor3", theme.Card, anim)
         TweenColor(CloseBtn, "TextColor3", theme.Text, anim)
         TweenColor(CloseStroke, "Color", theme.Border, anim)
+
+        TweenColor(SearchFrame, "BackgroundColor3", theme.Input, anim)
+        TweenColor(SearchStroke, "Color", theme.Border, anim)
+        TweenColor(SearchBox, "TextColor3", theme.Text, anim)
     end)
 
     MinBtn.MouseButton1Click:Connect(function()
@@ -721,6 +782,508 @@ function Library:CreateWindow(hubTitle)
             buildList(list)
 
             return { Refresh = function(_, newList) buildList(newList) end }
+        end
+
+        --ПОИСКОВЫЙ ДРОПДАУН (SINGLE SEARCH DROPDOWN)
+        function TabObj:AddSearchDropdown(name, list, default, callback)
+            list = list or {}
+            local selected = default or list[1] or "Ничего"
+
+            local Frame = Instance.new("Frame", ContentFrame)
+            Frame.Size = UDim2.new(1, 0, 0, 34)
+            Frame.ClipsDescendants = true
+            Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+            local FrameStroke = Instance.new("UIStroke", Frame)
+
+            local Label = Instance.new("TextLabel", Frame)
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.45, 0, 0, 34), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
+
+            local DropBtn = Instance.new("TextButton", Frame)
+            DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextSize = UDim2.new(0.45, 0, 0, 6), UDim2.new(0.55, -6, 0, 22), Enum.Font.GothamBold, tostring(selected) .. "  ▼", 11
+            DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
+            Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
+
+            -- Поле поиска внутри дропдауна
+            local SearchBox = Instance.new("TextBox", Frame)
+            SearchBox.Position, SearchBox.Size, SearchBox.Font, SearchBox.PlaceholderText, SearchBox.Text, SearchBox.TextSize = UDim2.new(0, 6, 0, 36), UDim2.new(1, -12, 0, 22), Enum.Font.GothamMedium, "🔍 Поиск...", "", 11
+            SearchBox.ClearTextOnFocus = false
+            Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
+
+            local DropHolder = Instance.new("ScrollingFrame", Frame)
+            DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 6, 0, 62), UDim2.new(1, -12, 0, 0)
+            DropHolder.CanvasSize, DropHolder.AutomaticCanvasSize, DropHolder.ScrollBarThickness, DropHolder.BorderSizePixel = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 3, 0
+
+            local ListLayout = Instance.new("UIListLayout", DropHolder)
+            ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
+
+            WindowObj:RegisterThemeUpdater(function(theme, anim)
+                TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(FrameStroke, "Color", theme.Border, anim)
+                TweenColor(Label, "TextColor3", theme.Text, anim)
+                TweenColor(DropBtn, "BackgroundColor3", theme.Input, anim)
+                TweenColor(DropBtn, "TextColor3", theme.Text, anim)
+                TweenColor(SearchBox, "BackgroundColor3", theme.Input, anim)
+                TweenColor(SearchBox, "TextColor3", theme.Text, anim)
+                TweenColor(SearchBox, "PlaceholderColor3", theme.Off, anim)
+                TweenColor(DropHolder, "ScrollBarImageColor3", theme.Accent, anim)
+            end)
+
+            local isOpen = false
+            local function toggleDrop()
+                isOpen = not isOpen
+                local targetHeight = math.min(#list * 26, 120)
+                TS:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, isOpen and (68 + targetHeight) or 34) }):Play()
+                TS:Create(DropHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, -12, 0, isOpen and targetHeight or 0) }):Play()
+            end
+
+            DropBtn.MouseButton1Click:Connect(toggleDrop)
+
+            -- Фильтрация списка при вводе с анимированным затуханием
+            SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+                local query = string.lower(SearchBox.Text)
+                for _, btn in ipairs(DropHolder:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        local matches = (query == "") or string.find(string.lower(btn.Text), query, 1, true)
+                        if matches then
+                            btn.Visible = true
+                            TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 22) }):Play()
+                        else
+                            local t = TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 0) })
+                            t:Play()
+                            t.Completed:Connect(function() if not string.find(string.lower(btn.Text), query, 1, true) then btn.Visible = false end end)
+                        end
+                    end
+                end
+            end)
+
+            local function buildList(newList)
+                list = newList or list
+                for _, c in ipairs(DropHolder:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+                for _, option in ipairs(list) do
+                    local Btn = Instance.new("TextButton", DropHolder)
+                    Btn.Size, Btn.Font, Btn.Text, Btn.TextSize, Btn.BackgroundColor3, Btn.TextColor3 = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11, Library.CurrentTheme.Input, Library.CurrentTheme.Text
+                    Btn.TextTruncate = Enum.TextTruncate.AtEnd
+                    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+
+                    Btn.MouseButton1Click:Connect(function()
+                        selected = option
+                        DropBtn.Text = tostring(selected) .. "  ▼"
+                        toggleDrop()
+                        if callback then callback(selected) end
+                    end)
+                end
+            end
+            buildList(list)
+
+            return { 
+                Refresh = function(_, newList, newDefault) 
+                    buildList(newList) 
+                    if newDefault then selected = newDefault DropBtn.Text = tostring(selected) .. "  ▼" end
+                    if isOpen then
+                        local targetHeight = math.min(#list * 26, 120)
+                        TS:Create(Frame, TweenInfo.new(0.2), { Size = UDim2.new(1, 0, 0, 68 + targetHeight) }):Play()
+                        TS:Create(DropHolder, TweenInfo.new(0.2), { Size = UDim2.new(1, -12, 0, targetHeight) }):Play()
+                    end
+                end 
+            }
+        end
+
+        -- ========================================================
+        -- 2.2 МУЛЬТИ-ПОИСКОВЫЙ ДРОПДАУН (MULTI SEARCH DROPDOWN)
+        -- ========================================================
+        function TabObj:AddMultiSearchDropdown(name, list, callback)
+            list = list or {}
+            local selectedMap = {}
+
+            local Frame = Instance.new("Frame", ContentFrame)
+            Frame.Size = UDim2.new(1, 0, 0, 34)
+            Frame.ClipsDescendants = true
+            Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+            local FrameStroke = Instance.new("UIStroke", Frame)
+
+            local Label = Instance.new("TextLabel", Frame)
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.45, 0, 0, 34), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
+
+            local DropBtn = Instance.new("TextButton", Frame)
+            DropBtn.Position, DropBtn.Size, DropBtn.Font, DropBtn.Text, DropBtn.TextSize = UDim2.new(0.45, 0, 0, 6), UDim2.new(0.55, -6, 0, 22), Enum.Font.GothamBold, "Выбрано: 0  ▼", 11
+            DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
+            Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
+
+            local SearchBox = Instance.new("TextBox", Frame)
+            SearchBox.Position, SearchBox.Size, SearchBox.Font, SearchBox.PlaceholderText, SearchBox.Text, SearchBox.TextSize = UDim2.new(0, 6, 0, 36), UDim2.new(1, -12, 0, 22), Enum.Font.GothamMedium, "🔍 Поиск...", "", 11
+            SearchBox.ClearTextOnFocus = false
+            Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
+
+            local DropHolder = Instance.new("ScrollingFrame", Frame)
+            DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 6, 0, 62), UDim2.new(1, -12, 0, 0)
+            DropHolder.CanvasSize, DropHolder.AutomaticCanvasSize, DropHolder.ScrollBarThickness, DropHolder.BorderSizePixel = UDim2.new(0, 0, 0, 0), Enum.AutomaticSize.Y, 3, 0
+
+            local ListLayout = Instance.new("UIListLayout", DropHolder)
+            ListLayout.SortOrder, ListLayout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 4)
+
+            WindowObj:RegisterThemeUpdater(function(theme, anim)
+                TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(FrameStroke, "Color", theme.Border, anim)
+                TweenColor(Label, "TextColor3", theme.Text, anim)
+                TweenColor(DropBtn, "BackgroundColor3", theme.Input, anim)
+                TweenColor(DropBtn, "TextColor3", theme.Text, anim)
+                TweenColor(SearchBox, "BackgroundColor3", theme.Input, anim)
+                TweenColor(SearchBox, "TextColor3", theme.Text, anim)
+                TweenColor(SearchBox, "PlaceholderColor3", theme.Off, anim)
+                TweenColor(DropHolder, "ScrollBarImageColor3", theme.Accent, anim)
+            end)
+
+            local isOpen = false
+            local function toggleDrop()
+                isOpen = not isOpen
+                local targetHeight = math.min(#list * 26, 120)
+                TS:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, isOpen and (68 + targetHeight) or 34) }):Play()
+                TS:Create(DropHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, -12, 0, isOpen and targetHeight or 0) }):Play()
+            end
+
+            DropBtn.MouseButton1Click:Connect(toggleDrop)
+
+            SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+                local query = string.lower(SearchBox.Text)
+                for _, btn in ipairs(DropHolder:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        local matches = (query == "") or string.find(string.lower(btn.Text), query, 1, true)
+                        if matches then
+                            btn.Visible = true
+                            TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 22) }):Play()
+                        else
+                            local t = TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 0) })
+                            t:Play()
+                            t.Completed:Connect(function() if not string.find(string.lower(btn.Text), query, 1, true) then btn.Visible = false end end)
+                        end
+                    end
+                end
+            end)
+
+            local function updateTitle()
+                local count = 0
+                for _ in pairs(selectedMap) do count = count + 1 end
+                DropBtn.Text = "Выбрано: " .. tostring(count) .. "  ▼"
+            end
+
+            local function buildList(newList)
+                list = newList or list
+                for _, c in ipairs(DropHolder:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+                for _, option in ipairs(list) do
+                    local Btn = Instance.new("TextButton", DropHolder)
+                    Btn.Size, Btn.Font, Btn.Text, Btn.TextSize = UDim2.new(1, -6, 0, 22), Enum.Font.GothamMedium, tostring(option), 11
+                    Btn.BackgroundColor3 = selectedMap[option] and Library.CurrentTheme.Accent or Library.CurrentTheme.Input
+                    Btn.TextColor3 = Library.CurrentTheme.Text
+                    Btn.TextTruncate = Enum.TextTruncate.AtEnd
+                    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+
+                    Btn.MouseButton1Click:Connect(function()
+                        selectedMap[option] = not selectedMap[option] and true or nil
+                        TS:Create(Btn, TweenInfo.new(0.15), { BackgroundColor3 = selectedMap[option] and Library.CurrentTheme.Accent or Library.CurrentTheme.Input }):Play()
+                        updateTitle()
+                        if callback then callback(selectedMap) end
+                    end)
+                end
+                updateTitle()
+            end
+            buildList(list)
+
+            return { 
+                Refresh = function(_, newList) 
+                    buildList(newList) 
+                    if isOpen then
+                        local targetHeight = math.min(#list * 26, 120)
+                        TS:Create(Frame, TweenInfo.new(0.2), { Size = UDim2.new(1, 0, 0, 68 + targetHeight) }):Play()
+                        TS:Create(DropHolder, TweenInfo.new(0.2), { Size = UDim2.new(1, -12, 0, targetHeight) }):Play()
+                    end
+                end 
+            }
+        end
+
+        -- ========================================================
+        -- 2.3 АВТО-ОБНОВЛЯЕМЫЙ ПЛЕЕР-ДРОПДАУН (PLAYER DROPDOWN)
+        -- ========================================================
+        function TabObj:AddPlayerDropdown(name, isMulti, isSearch, callback)
+            local function getPlayerNames()
+                local names = {}
+                for _, p in ipairs(Players:GetPlayers()) do
+                    table.insert(names, p.Name)
+                end
+                return names
+            end
+
+            local pList = getPlayerNames()
+            local dropObj = nil
+
+            if isSearch and isMulti then
+                dropObj = TabObj:AddMultiSearchDropdown(name, pList, callback)
+            elseif isSearch then
+                dropObj = TabObj:AddSearchDropdown(name, pList, nil, callback)
+            elseif isMulti then
+                dropObj = TabObj:AddMultiDropdown(name, pList, callback)
+            else
+                dropObj = TabObj:AddDropdown(name, pList, nil, callback)
+            end
+
+            -- Бесшовное обновление без авто-закрытия меню при входе/выходе игроков
+            TrackConn(Players.PlayerAdded:Connect(function()
+                task.wait(0.2)
+                dropObj:Refresh(getPlayerNames())
+            end))
+
+            TrackConn(Players.PlayerRemoving:Connect(function()
+                task.wait(0.1)
+                dropObj:Refresh(getPlayerNames())
+            end))
+
+            return dropObj
+        end
+
+        -- 3. ВЫБОР ЦВЕТА (COLORPICKER С RGB СЛАЙДЕРАМИ)
+        function TabObj:AddColorpicker(name, defaultColor, callback)
+            defaultColor = defaultColor or Color3.fromRGB(255, 255, 255)
+            local currColor = defaultColor
+
+            local Frame = Instance.new("Frame", ContentFrame)
+            Frame.Size = UDim2.new(1, 0, 0, 34)
+            Frame.ClipsDescendants = true
+            Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+            local FrameStroke = Instance.new("UIStroke", Frame)
+
+            local Label = Instance.new("TextLabel", Frame)
+            Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.5, 0, 0, 34), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
+
+            -- Кнопка-превью цвета
+            local PreviewBtn = Instance.new("TextButton", Frame)
+            PreviewBtn.Position, PreviewBtn.Size, PreviewBtn.AutoButtonColor, PreviewBtn.Text = UDim2.new(1, -64, 0, 6), UDim2.new(0, 58, 0, 22), false, ""
+            PreviewBtn.BackgroundColor3 = currColor
+            Instance.new("UICorner", PreviewBtn).CornerRadius = UDim.new(0, 6)
+            local PreviewStroke = Instance.new("UIStroke", PreviewBtn)
+
+            local HexLabel = Instance.new("TextLabel", PreviewBtn)
+            HexLabel.Size, HexLabel.BackgroundTransparency, HexLabel.Font, HexLabel.TextSize = UDim2.new(1, 0, 1, 0), 1, Enum.Font.GothamBold, 10
+            HexLabel.Text = ColorToHex(currColor)
+
+            -- Выпадающий контейнер со слайдерами R, G, B
+            local PickerContainer = Instance.new("Frame", Frame)
+            PickerContainer.BackgroundTransparency, PickerContainer.Position, PickerContainer.Size = 1, UDim2.new(0, 10, 0, 38), UDim2.new(1, -20, 0, 100)
+
+            local isOpen = false
+            local function togglePicker()
+                isOpen = not isOpen
+                TS:Create(Frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, isOpen and 138 or 34) }):Play()
+            end
+
+            PreviewBtn.MouseButton1Click:Connect(togglePicker)
+
+            local function updateColor(newColor)
+                currColor = newColor
+                PreviewBtn.BackgroundColor3 = currColor
+                HexLabel.Text = ColorToHex(currColor)
+
+                -- Контрастность текста HEX (черный/белый)
+                local lum = (currColor.R * 0.299 + currColor.G * 0.587 + currColor.B * 0.114)
+                HexLabel.TextColor3 = lum > 0.5 and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+
+                if callback then callback(currColor) end
+            end
+
+            local channels = {
+                { Name = "R", Val = math.floor(currColor.R * 255), Color = Color3.fromRGB(239, 68, 68) },
+                { Name = "G", Val = math.floor(currColor.G * 255), Color = Color3.fromRGB(16, 185, 129) },
+                { Name = "B", Val = math.floor(currColor.B * 255), Color = Color3.fromRGB(59, 130, 246) }
+            }
+
+            local sliders = {}
+
+            for i, ch in ipairs(channels) do
+                local Row = Instance.new("Frame", PickerContainer)
+                Row.Position, Row.Size, Row.BackgroundTransparency = UDim2.new(0, 0, 0, (i - 1) * 30), UDim2.new(1, 0, 0, 24), 1
+
+                local ChLabel = Instance.new("TextLabel", Row)
+                ChLabel.Size, ChLabel.Position, ChLabel.BackgroundTransparency, ChLabel.Font, ChLabel.Text, ChLabel.TextSize, ChLabel.TextColor3 = UDim2.new(0, 16, 1, 0), UDim2.new(0, 0, 0, 0), 1, Enum.Font.GothamBold, ch.Name, 11, ch.Color
+
+                local Track = Instance.new("TextButton", Row)
+                Track.Text, Track.AutoButtonColor, Track.Position, Track.Size = "", false, UDim2.new(0, 22, 0.5, -4), UDim2.new(1, -60, 0, 8)
+                Instance.new("UICorner", Track).CornerRadius = UDim.new(1, 0)
+
+                local Fill = Instance.new("Frame", Track)
+                Fill.Size, Fill.BackgroundColor3 = UDim2.new(ch.Val / 255, 0, 1, 0), ch.Color
+                Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
+
+                local ValText = Instance.new("TextLabel", Row)
+                ValText.Size, ValText.Position, ValText.BackgroundTransparency, ValText.Font, ValText.Text, ValText.TextSize = UDim2.new(0, 32, 1, 0), UDim2.new(1, -32, 0, 0), 1, Enum.Font.GothamMedium, tostring(ch.Val), 11
+
+                sliders[ch.Name] = { Ch = ch, Track = Track, Fill = Fill, ValText = ValText }
+
+                WindowObj:RegisterThemeUpdater(function(theme, anim)
+                    TweenColor(Track, "BackgroundColor3", theme.Input, anim)
+                    TweenColor(ValText, "TextColor3", theme.Text, anim)
+                end)
+
+                local sliding = false
+                local function updateCh(input)
+                    local pos = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+                    ch.Val = math.floor(pos * 255)
+                    ValText.Text = tostring(ch.Val)
+                    Fill.Size = UDim2.new(pos, 0, 1, 0)
+
+                    local newC = Color3.fromRGB(sliders["R"].Ch.Val, sliders["G"].Ch.Val, sliders["B"].Ch.Val)
+                    updateColor(newC)
+                end
+
+                TrackConn(Track.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true updateCh(input) end
+                end))
+                TrackConn(UIS.InputChanged:Connect(function(input)
+                    if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then updateCh(input) end
+                end))
+                TrackConn(UIS.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
+                end))
+            end
+
+            WindowObj:RegisterThemeUpdater(function(theme, anim)
+                TweenColor(Frame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(FrameStroke, "Color", theme.Border, anim)
+                TweenColor(Label, "TextColor3", theme.Text, anim)
+                TweenColor(PreviewStroke, "Color", theme.Border, anim)
+            end)
+
+            updateColor(defaultColor)
+
+            return {
+                Set = function(_, newColor)
+                    updateColor(newColor)
+                    for _, name in ipairs({"R", "G", "B"}) do
+                        local val = math.floor((name == "R" and newColor.R or name == "G" and newColor.G or newColor.B) * 255)
+                        sliders[name].Ch.Val = val
+                        sliders[name].Fill.Size = UDim2.new(val / 255, 0, 1, 0)
+                        sliders[name].ValText.Text = tostring(val)
+                    end
+                end
+            }
+        end
+
+        -- 4.1 ВСПЛЫВАЮЩИЕ ПОДСКАЗКИ (TOOLTIPS SYSTEM)
+        function Library:AddTooltip(element, text)
+            if not text or text == "" then return end
+
+            local tooltipFrame = Instance.new("Frame")
+            tooltipFrame.Name = "Tooltip"
+            tooltipFrame.BackgroundColor3 = Library.CurrentTheme.Card
+            tooltipFrame.Size = UDim2.new(0, 10, 0, 22)
+            tooltipFrame.AutomaticSize = Enum.AutomaticSize.X
+            tooltipFrame.Visible = false
+            tooltipFrame.ZIndex = 1000
+            Instance.new("UICorner", tooltipFrame).CornerRadius = UDim.new(0, 6)
+            local stroke = Instance.new("UIStroke", tooltipFrame)
+            stroke.Color = Library.CurrentTheme.Border
+
+            local label = Instance.new("TextLabel", tooltipFrame)
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.Font = Enum.Font.GothamMedium
+            label.Text = "  " .. text .. "  "
+            label.TextColor3 = Library.CurrentTheme.Text
+            label.TextSize = 11
+            label.AutomaticSize = Enum.AutomaticSize.X
+
+            -- Находим главный ScreenGui для отрисовки подсказки поверху всего
+            local mainGui = element:FindFirstAncestorOfClass("ScreenGui")
+            if mainGui then tooltipFrame.Parent = mainGui end
+
+            local connHover, connMove, connLeave
+
+            connHover = element.MouseEnter:Connect(function()
+                tooltipFrame.Visible = true
+                local mousePos = UIS:GetMouseLocation()
+                tooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - 32)
+            end)
+
+            connMove = element.MouseMoved:Connect(function()
+                if tooltipFrame.Visible then
+                    local mousePos = UIS:GetMouseLocation()
+                    TS:Create(tooltipFrame, TweenInfo.new(0.05), { Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - 32) }):Play()
+                end
+            end)
+
+            connLeave = element.MouseLeave:Connect(function()
+                tooltipFrame.Visible = false
+            end)
+
+            Library.ThemeUpdaters[tooltipFrame] = function(theme, anim)
+                TweenColor(tooltipFrame, "BackgroundColor3", theme.Card, anim)
+                TweenColor(stroke, "Color", theme.Border, anim)
+                TweenColor(label, "TextColor3", theme.Text, anim)
+            end
+        end
+
+        -- ========================================================
+        -- 4.2 МОДАЛЬНОЕ ДИАЛОГОВОЕ ОКНО (LIBRARY PROMPT)
+        -- ========================================================
+        function Library:ShowPrompt(titleText, descText, buttons)
+            buttons = buttons or { { Text = "ОК", Primary = true, Callback = nil } }
+
+            local parentGui = CoreGui:FindFirstChild("RobloxGui") or LocalPlayer:WaitForChild("PlayerGui")
+            
+            -- Полупрозрачная подложка-затемнение
+            local Overlay = Instance.new("TextButton", parentGui)
+            Overlay.Name = "PromptOverlay"
+            Overlay.Size = UDim2.new(1, 0, 1, 0)
+            Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            Overlay.BackgroundTransparency = 1
+            Overlay.Text = ""
+            Overlay.AutoButtonColor = false
+            Overlay.ZIndex = 2000
+
+            local PromptFrame = Instance.new("Frame", Overlay)
+            PromptFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+            PromptFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+            PromptFrame.Size = UDim2.new(0, 0, 0, 0)
+            PromptFrame.BackgroundColor3 = Library.CurrentTheme.Card
+            PromptFrame.ClipsDescendants = true
+            Instance.new("UICorner", PromptFrame).CornerRadius = UDim.new(0, 10)
+            local PromptStroke = Instance.new("UIStroke", PromptFrame)
+            PromptStroke.Color = Library.CurrentTheme.Border
+
+            local PTitle = Instance.new("TextLabel", PromptFrame)
+            PTitle.Position, PTitle.Size, PTitle.Font, PTitle.Text, PTitle.TextSize, PTitle.TextColor3 = UDim2.new(0, 16, 0, 12), UDim2.new(1, -32, 0, 22), Enum.Font.GothamBold, titleText, 14, Library.CurrentTheme.Text
+            PTitle.TextXAlignment, PTitle.BackgroundTransparency = Enum.TextXAlignment.Left, 1
+
+            local PDesc = Instance.new("TextLabel", PromptFrame)
+            PDesc.Position, PDesc.Size, PDesc.Font, PDesc.Text, PDesc.TextSize, PDesc.TextColor3, PDesc.TextWrapped = UDim2.new(0, 16, 0, 36), UDim2.new(1, -32, 0, 42), Enum.Font.GothamMedium, descText, 12, Library.CurrentTheme.Off, true
+            PDesc.TextXAlignment, PDesc.TextYAlignment, PDesc.BackgroundTransparency = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, 1
+
+            local BtnHolder = Instance.new("Frame", PromptFrame)
+            BtnHolder.Position, BtnHolder.Size, BtnHolder.BackgroundTransparency = UDim2.new(0, 16, 1, -38), UDim2.new(1, -32, 0, 26), 1
+            local BtnLayout = Instance.new("UIListLayout", BtnHolder)
+            BtnLayout.FillDirection, BtnLayout.HorizontalAlignment, BtnLayout.Padding = Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right, UDim.new(0, 8)
+
+            local function closePrompt()
+                TS:Create(Overlay, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
+                local t = TS:Create(PromptFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = UDim2.new(0, 0, 0, 0) })
+                t:Play()
+                t.Completed:Connect(function() Overlay:Destroy() end)
+            end
+
+            for _, btnData in ipairs(buttons) do
+                local Btn = Instance.new("TextButton", BtnHolder)
+                Btn.Size = UDim2.new(0, 85, 1, 0)
+                Btn.Font, Btn.Text, Btn.TextSize = Enum.Font.GothamBold, btnData.Text or "OK", 11
+                Btn.BackgroundColor3 = btnData.Primary and Library.CurrentTheme.Accent or Library.CurrentTheme.Input
+                Btn.TextColor3 = Library.CurrentTheme.Text
+                Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+
+                Btn.MouseButton1Click:Connect(function()
+                    closePrompt()
+                    if btnData.Callback then btnData.Callback() end
+                end)
+            end
+
+            -- Анимация появления
+            TS:Create(Overlay, TweenInfo.new(0.25), { BackgroundTransparency = 0.5 }):Play()
+            TS:Create(PromptFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 320, 0, 125) }):Play()
         end
 
         -- 1. СТАНДАРТНЫЙ ОДИНОЧНЫЙ КЕЙБИНД (FIXED CONNECTION)
