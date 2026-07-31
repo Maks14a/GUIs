@@ -1,5 +1,5 @@
 -- ========================================================
---  OWNER HUB GUI LIBRARY v5.5 (FIXED)
+--  OWNER HUB GUI LIBRARY v5.5 (FULLY FIXED)
 -- ========================================================
 local Library = {}
 
@@ -9,6 +9,7 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 Library.Themes = {
@@ -18,6 +19,8 @@ Library.Themes = {
     Amethyst = { Accent = Color3.fromRGB(168, 85, 247), BG = Color3.fromRGB(18, 14, 24),  Card = Color3.fromRGB(28, 22, 39),  Input = Color3.fromRGB(39, 30, 54), Text = Color3.fromRGB(245, 240, 255), Border = Color3.fromRGB(55, 40, 75),  Off = Color3.fromRGB(45, 35, 60) },
     Amber    = { Accent = Color3.fromRGB(245, 158, 11), BG = Color3.fromRGB(20, 17, 14),  Card = Color3.fromRGB(34, 27, 22),  Input = Color3.fromRGB(47, 38, 30), Text = Color3.fromRGB(255, 245, 240), Border = Color3.fromRGB(65, 52, 40),  Off = Color3.fromRGB(50, 42, 35) }
 }
+
+Library.ThemeUpdaters = {}
 
 local CONFIG_FOLDER = "OwnerHub"
 local CONFIG_FILE = "OwnerHub/config.json"
@@ -56,17 +59,70 @@ local function TweenColor(obj, prop, targetColor, animate)
     end
 end
 
+-- ВСПЛЫВАЮЩИЕ ПОДСКАЗКИ (БЕЗОПАСНАЯ ИЗНАЧАЛЬНАЯ РЕАЛИЗАЦИЯ)
+function Library:AddTooltip(element, text)
+    if not element or not text or text == "" then return end
+
+    local tooltipFrame = Instance.new("Frame")
+    tooltipFrame.Name = "Tooltip"
+    tooltipFrame.BackgroundColor3 = Library.CurrentTheme and Library.CurrentTheme.Card or Color3.fromRGB(24, 27, 34)
+    tooltipFrame.Size = UDim2.new(0, 10, 0, 22)
+    tooltipFrame.AutomaticSize = Enum.AutomaticSize.X
+    tooltipFrame.Visible = false
+    tooltipFrame.ZIndex = 5000
+    Instance.new("UICorner", tooltipFrame).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", tooltipFrame)
+    stroke.Color = Library.CurrentTheme and Library.CurrentTheme.Border or Color3.fromRGB(45, 52, 65)
+
+    local label = Instance.new("TextLabel", tooltipFrame)
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Font = Enum.Font.GothamMedium
+    label.Text = "  " .. text .. "  "
+    label.TextColor3 = Library.CurrentTheme and Library.CurrentTheme.Text or Color3.fromRGB(240, 242, 245)
+    label.TextSize = 11
+    label.AutomaticSize = Enum.AutomaticSize.X
+
+    local mainGui = element:FindFirstAncestorOfClass("ScreenGui") or CoreGui:FindFirstChild("OwnerHub_Core") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("OwnerHub_Core")
+    if mainGui then 
+        tooltipFrame.Parent = mainGui 
+    end
+
+    element.MouseEnter:Connect(function()
+        tooltipFrame.Visible = true
+        local mousePos = UIS:GetMouseLocation()
+        tooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - 36)
+    end)
+
+    element.MouseMoved:Connect(function()
+        if tooltipFrame.Visible then
+            local mousePos = UIS:GetMouseLocation()
+            TS:Create(tooltipFrame, TweenInfo.new(0.05), { Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - 36) }):Play()
+        end
+    end)
+
+    element.MouseLeave:Connect(function()
+        tooltipFrame.Visible = false
+    end)
+
+    Library.ThemeUpdaters[tooltipFrame] = function(theme, anim)
+        TweenColor(tooltipFrame, "BackgroundColor3", theme.Card, anim)
+        TweenColor(stroke, "Color", theme.Border, anim)
+        TweenColor(label, "TextColor3", theme.Text, anim)
+    end
+end
+
 function Library:Notify(titleText, msgText, duration)
     duration = duration or 3.5
-    local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+    local parentGui = CoreGui or LocalPlayer:WaitForChild("PlayerGui")
     
-    local NotifGui = CoreGui:FindFirstChild("OwnerHub_Notif")
+    local NotifGui = parentGui:FindFirstChild("OwnerHub_Notif")
     if not NotifGui then
         NotifGui = Instance.new("ScreenGui")
         NotifGui.Name = "OwnerHub_Notif"
         NotifGui.ResetOnSpawn = false
         NotifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        NotifGui.Parent = CoreGui
+        NotifGui.Parent = parentGui
     end
 
     local C = Library.CurrentTheme or Library.Themes.Emerald
@@ -98,8 +154,8 @@ function Library:Notify(titleText, msgText, duration)
 end
 
 function Library:CreateWindow(hubTitle)
-    if game:GetService("CoreGui"):FindFirstChild("OwnerHub_Core") then
-        game:GetService("CoreGui").OwnerHub_Core:Destroy()
+    if CoreGui:FindFirstChild("OwnerHub_Core") then
+        CoreGui.OwnerHub_Core:Destroy()
     end
 
     local savedConfig = LoadConfig()
@@ -110,7 +166,7 @@ function Library:CreateWindow(hubTitle)
     local C = Library.Themes[themeName] or Library.Themes.Emerald
     Library.CurrentTheme = C
 
-    local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"))
+    local ScreenGui = Instance.new("ScreenGui", CoreGui or LocalPlayer:WaitForChild("PlayerGui"))
     ScreenGui.Name, ScreenGui.ResetOnSpawn = "OwnerHub_Core", false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -132,8 +188,8 @@ function Library:CreateWindow(hubTitle)
         CurrentThemeName = themeName,
         ToggleKey = initialToggleKey,
         ThemeUpdaters = {},
-        Connections = {}, -- Реестр всех подключений для полной очистки
-        ActiveThreads = {}, -- Реестр активных потоков (кейбинды удержания)
+        Connections = {},
+        ActiveThreads = {},
         IsMinimized = false,
         IsOpen = true,
         IsAnimating = false
@@ -208,23 +264,23 @@ function Library:CreateWindow(hubTitle)
     Header.BackgroundTransparency, Header.Size = 1, UDim2.new(1, 0, 0, 42)
 
     local TitleLabel = Instance.new("TextLabel", Header)
-    TitleLabel.BackgroundTransparency, TitleLabel.Position, TitleLabel.Size = 1, UDim2.new(0, 14, 0, 0), UDim2.new(0, 150, 1, 0)
+    TitleLabel.BackgroundTransparency, TitleLabel.Position, TitleLabel.Size = 1, UDim2.new(0, 14, 0, 0), UDim2.new(0, 160, 1, 0)
     TitleLabel.Font, TitleLabel.RichText, TitleLabel.TextSize, TitleLabel.TextXAlignment = Enum.Font.GothamBold, true, 13, Enum.TextXAlignment.Left
 
-    -- Поисковая строка в шапке
+    -- Оптимизированная поисковая строка
     local SearchFrame = Instance.new("Frame", Header)
-    SearchFrame.Position, SearchFrame.Size = UDim2.new(0, 165, 0, 8), UDim2.new(1, -245, 0, 26)
+    SearchFrame.Position, SearchFrame.Size = UDim2.new(0, 180, 0, 8), UDim2.new(1, -260, 0, 26)
     SearchFrame.BackgroundColor3 = C.Input
     Instance.new("UICorner", SearchFrame).CornerRadius = UDim.new(0, 6)
     local SearchStroke = Instance.new("UIStroke", SearchFrame)
     SearchStroke.Color = C.Border
 
     local SearchIcon = Instance.new("TextLabel", SearchFrame)
-    SearchIcon.BackgroundTransparency, SearchIcon.Position, SearchIcon.Size = 1, UDim2.new(0, 6, 0, 0), UDim2.new(0, 18, 1, 0)
+    SearchIcon.BackgroundTransparency, SearchIcon.Position, SearchIcon.Size = 1, UDim2.new(0, 8, 0, 0), UDim2.new(0, 16, 1, 0)
     SearchIcon.Font, SearchIcon.Text, SearchIcon.TextSize, SearchIcon.TextColor3 = Enum.Font.GothamMedium, "🔍", 11, C.Text
 
     local SearchBox = Instance.new("TextBox", SearchFrame)
-    SearchBox.BackgroundTransparency, SearchBox.Position, SearchBox.Size = 1, UDim2.new(0, 26, 0, 0), UDim2.new(1, -30, 1, 0)
+    SearchBox.BackgroundTransparency, SearchBox.Position, SearchBox.Size = 1, UDim2.new(0, 28, 0, 0), UDim2.new(1, -34, 1, 0)
     SearchBox.Font, SearchBox.PlaceholderText, SearchBox.Text, SearchBox.TextSize, SearchBox.TextColor3, SearchBox.PlaceholderColor3 = Enum.Font.GothamMedium, "Поиск...", "", 11, C.Text, C.Off
     SearchBox.TextXAlignment, SearchBox.ClearTextOnFocus = Enum.TextXAlignment.Left, false
 
@@ -256,37 +312,36 @@ function Library:CreateWindow(hubTitle)
     local CloseStroke = Instance.new("UIStroke", CloseBtn)
     CloseStroke.Color = C.Border
 
-    -- Логика глобального поиска с плавными анимациями
+    -- ПОИСК БЕЗ УЧЕТА РЕГИСТРА (Case-Insensitive Global Search)
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local query = string.lower(SearchBox.Text)
+        local rawQuery = SearchBox.Text:lower()
 
         for _, tabData in ipairs(WindowObj.Tabs) do
             local container = tabData.Frame
             for _, element in ipairs(container:GetChildren()) do
                 if element:IsA("Frame") or element:IsA("TextButton") then
-                    local textHolder = element:FindFirstChildOfClass("TextLabel") or (element:IsA("TextButton") and element or nil)
-                    local elementText = textHolder and string.lower(textHolder.Text) or ""
+                    local textLabel = element:FindFirstChildOfClass("TextLabel") or (element:IsA("TextButton") and element or nil)
+                    local elementText = textLabel and textLabel.Text:lower() or ""
                     
-                    -- Запоминаем оригинальную высоту элемента, если еще не сохранили
                     if not element:GetAttribute("OriginalSizeY") then
                         element:SetAttribute("OriginalSizeY", element.Size.Y.Offset)
                     end
                     local origY = element:GetAttribute("OriginalSizeY")
 
-                    local matches = (query == "") or string.find(elementText, query, 1, true)
+                    local matches = (rawQuery == "") or (string.find(elementText, rawQuery, 1, true) ~= nil)
 
                     if matches then
                         element.Visible = true
-                        TS:Create(element, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        TS:Create(element, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                             Size = UDim2.new(1, 0, 0, origY)
                         }):Play()
                     else
-                        local tweenHide = TS:Create(element, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                        local tweenHide = TS:Create(element, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                             Size = UDim2.new(1, 0, 0, 0)
                         })
                         tweenHide:Play()
                         tweenHide.Completed:Connect(function()
-                            if not string.find(string.lower(SearchBox.Text), query, 1, true) or query ~= "" then
+                            if SearchBox.Text:lower() == rawQuery and rawQuery ~= "" then
                                 element.Visible = false
                             end
                         end)
@@ -324,7 +379,6 @@ function Library:CreateWindow(hubTitle)
     ModalDesc.Size, ModalDesc.Position, ModalDesc.BackgroundTransparency, ModalDesc.ZIndex = UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 45), 1, 102
     ModalDesc.Font, ModalDesc.Text, ModalDesc.TextColor3, ModalDesc.TextSize, ModalDesc.TextWrapped = Enum.Font.GothamMedium, "Вы действительно хотите полностью закрыть Owner Hub?", C.Text, 12, true
 
-    -- Фикс внешнего вида кнопок закрытия (присваиваем цвета сразу при создании)
     local ModalYes = Instance.new("TextButton", ModalCard)
     ModalYes.Size, ModalYes.Position, ModalYes.AutoButtonColor, ModalYes.ZIndex = UDim2.new(0, 135, 0, 32), UDim2.new(0, 15, 1, -45), false, 102
     ModalYes.Font, ModalYes.Text, ModalYes.TextSize = Enum.Font.GothamBold, "Да, закрыть", 12
@@ -372,6 +426,10 @@ function Library:CreateWindow(hubTitle)
                 if success then table.insert(validUpdaters, fn) end
             end
             WindowObj.ThemeUpdaters = validUpdaters
+
+            for _, fn in pairs(Library.ThemeUpdaters) do
+                pcall(fn, newC, true)
+            end
         end
     end
 
@@ -413,7 +471,6 @@ function Library:CreateWindow(hubTitle)
     CloseBtn.MouseButton1Click:Connect(function() toggleModal(true) end)
     ModalNo.MouseButton1Click:Connect(function() toggleModal(false) end)
 
-    -- Фикс полной отгрузки: отключаем ВСЕ события и потоки при закрытии
     ModalYes.MouseButton1Click:Connect(function()
         for _, thread in ipairs(WindowObj.ActiveThreads) do
             if thread then pcall(task.cancel, thread) end
@@ -784,7 +841,7 @@ function Library:CreateWindow(hubTitle)
             return { Refresh = function(_, newList) buildList(newList) end }
         end
 
-        --ПОИСКОВЫЙ ДРОПДАУН (SINGLE SEARCH DROPDOWN)
+        -- SINGLE SEARCH DROPDOWN (БЕЗ УЧЕТА РЕГИСТРА)
         function TabObj:AddSearchDropdown(name, list, default, callback)
             list = list or {}
             local selected = default or list[1] or "Ничего"
@@ -803,11 +860,10 @@ function Library:CreateWindow(hubTitle)
             DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
             Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
 
-            -- Поле поиска внутри дропдауна
-            local SearchBox = Instance.new("TextBox", Frame)
-            SearchBox.Position, SearchBox.Size, SearchBox.Font, SearchBox.PlaceholderText, SearchBox.Text, SearchBox.TextSize = UDim2.new(0, 6, 0, 36), UDim2.new(1, -12, 0, 22), Enum.Font.GothamMedium, "🔍 Поиск...", "", 11
-            SearchBox.ClearTextOnFocus = false
-            Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
+            local InnerSearchBox = Instance.new("TextBox", Frame)
+            InnerSearchBox.Position, InnerSearchBox.Size, InnerSearchBox.Font, InnerSearchBox.PlaceholderText, InnerSearchBox.Text, InnerSearchBox.TextSize = UDim2.new(0, 6, 0, 36), UDim2.new(1, -12, 0, 22), Enum.Font.GothamMedium, "🔍 Поиск...", "", 11
+            InnerSearchBox.ClearTextOnFocus = false
+            Instance.new("UICorner", InnerSearchBox).CornerRadius = UDim.new(0, 6)
 
             local DropHolder = Instance.new("ScrollingFrame", Frame)
             DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 6, 0, 62), UDim2.new(1, -12, 0, 0)
@@ -822,9 +878,9 @@ function Library:CreateWindow(hubTitle)
                 TweenColor(Label, "TextColor3", theme.Text, anim)
                 TweenColor(DropBtn, "BackgroundColor3", theme.Input, anim)
                 TweenColor(DropBtn, "TextColor3", theme.Text, anim)
-                TweenColor(SearchBox, "BackgroundColor3", theme.Input, anim)
-                TweenColor(SearchBox, "TextColor3", theme.Text, anim)
-                TweenColor(SearchBox, "PlaceholderColor3", theme.Off, anim)
+                TweenColor(InnerSearchBox, "BackgroundColor3", theme.Input, anim)
+                TweenColor(InnerSearchBox, "TextColor3", theme.Text, anim)
+                TweenColor(InnerSearchBox, "PlaceholderColor3", theme.Off, anim)
                 TweenColor(DropHolder, "ScrollBarImageColor3", theme.Accent, anim)
             end)
 
@@ -838,19 +894,22 @@ function Library:CreateWindow(hubTitle)
 
             DropBtn.MouseButton1Click:Connect(toggleDrop)
 
-            -- Фильтрация списка при вводе с анимированным затуханием
-            SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-                local query = string.lower(SearchBox.Text)
+            InnerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+                local query = InnerSearchBox.Text:lower()
                 for _, btn in ipairs(DropHolder:GetChildren()) do
                     if btn:IsA("TextButton") then
-                        local matches = (query == "") or string.find(string.lower(btn.Text), query, 1, true)
+                        local matches = (query == "") or (string.find(btn.Text:lower(), query, 1, true) ~= nil)
                         if matches then
                             btn.Visible = true
                             TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 22) }):Play()
                         else
                             local t = TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 0) })
                             t:Play()
-                            t.Completed:Connect(function() if not string.find(string.lower(btn.Text), query, 1, true) then btn.Visible = false end end)
+                            t.Completed:Connect(function() 
+                                if string.find(btn.Text:lower(), InnerSearchBox.Text:lower(), 1, true) == nil then 
+                                    btn.Visible = false 
+                                end 
+                            end)
                         end
                     end
                 end
@@ -888,9 +947,7 @@ function Library:CreateWindow(hubTitle)
             }
         end
 
-        -- ========================================================
-        -- 2.2 МУЛЬТИ-ПОИСКОВЫЙ ДРОПДАУН (MULTI SEARCH DROPDOWN)
-        -- ========================================================
+        -- MULTI SEARCH DROPDOWN (БЕЗ УЧЕТА РЕГИСТРА)
         function TabObj:AddMultiSearchDropdown(name, list, callback)
             list = list or {}
             local selectedMap = {}
@@ -909,10 +966,10 @@ function Library:CreateWindow(hubTitle)
             DropBtn.TextTruncate = Enum.TextTruncate.AtEnd
             Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 6)
 
-            local SearchBox = Instance.new("TextBox", Frame)
-            SearchBox.Position, SearchBox.Size, SearchBox.Font, SearchBox.PlaceholderText, SearchBox.Text, SearchBox.TextSize = UDim2.new(0, 6, 0, 36), UDim2.new(1, -12, 0, 22), Enum.Font.GothamMedium, "🔍 Поиск...", "", 11
-            SearchBox.ClearTextOnFocus = false
-            Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
+            local InnerSearchBox = Instance.new("TextBox", Frame)
+            InnerSearchBox.Position, InnerSearchBox.Size, InnerSearchBox.Font, InnerSearchBox.PlaceholderText, InnerSearchBox.Text, InnerSearchBox.TextSize = UDim2.new(0, 6, 0, 36), UDim2.new(1, -12, 0, 22), Enum.Font.GothamMedium, "🔍 Поиск...", "", 11
+            InnerSearchBox.ClearTextOnFocus = false
+            Instance.new("UICorner", InnerSearchBox).CornerRadius = UDim.new(0, 6)
 
             local DropHolder = Instance.new("ScrollingFrame", Frame)
             DropHolder.BackgroundTransparency, DropHolder.Position, DropHolder.Size = 1, UDim2.new(0, 6, 0, 62), UDim2.new(1, -12, 0, 0)
@@ -927,9 +984,9 @@ function Library:CreateWindow(hubTitle)
                 TweenColor(Label, "TextColor3", theme.Text, anim)
                 TweenColor(DropBtn, "BackgroundColor3", theme.Input, anim)
                 TweenColor(DropBtn, "TextColor3", theme.Text, anim)
-                TweenColor(SearchBox, "BackgroundColor3", theme.Input, anim)
-                TweenColor(SearchBox, "TextColor3", theme.Text, anim)
-                TweenColor(SearchBox, "PlaceholderColor3", theme.Off, anim)
+                TweenColor(InnerSearchBox, "BackgroundColor3", theme.Input, anim)
+                TweenColor(InnerSearchBox, "TextColor3", theme.Text, anim)
+                TweenColor(InnerSearchBox, "PlaceholderColor3", theme.Off, anim)
                 TweenColor(DropHolder, "ScrollBarImageColor3", theme.Accent, anim)
             end)
 
@@ -943,18 +1000,22 @@ function Library:CreateWindow(hubTitle)
 
             DropBtn.MouseButton1Click:Connect(toggleDrop)
 
-            SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-                local query = string.lower(SearchBox.Text)
+            InnerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+                local query = InnerSearchBox.Text:lower()
                 for _, btn in ipairs(DropHolder:GetChildren()) do
                     if btn:IsA("TextButton") then
-                        local matches = (query == "") or string.find(string.lower(btn.Text), query, 1, true)
+                        local matches = (query == "") or (string.find(btn.Text:lower(), query, 1, true) ~= nil)
                         if matches then
                             btn.Visible = true
                             TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 22) }):Play()
                         else
                             local t = TS:Create(btn, TweenInfo.new(0.15), { Size = UDim2.new(1, -6, 0, 0) })
                             t:Play()
-                            t.Completed:Connect(function() if not string.find(string.lower(btn.Text), query, 1, true) then btn.Visible = false end end)
+                            t.Completed:Connect(function() 
+                                if string.find(btn.Text:lower(), InnerSearchBox.Text:lower(), 1, true) == nil then 
+                                    btn.Visible = false 
+                                end 
+                            end)
                         end
                     end
                 end
@@ -1000,9 +1061,6 @@ function Library:CreateWindow(hubTitle)
             }
         end
 
-        -- ========================================================
-        -- 2.3 АВТО-ОБНОВЛЯЕМЫЙ ПЛЕЕР-ДРОПДАУН (PLAYER DROPDOWN)
-        -- ========================================================
         function TabObj:AddPlayerDropdown(name, isMulti, isSearch, callback)
             local function getPlayerNames()
                 local names = {}
@@ -1025,7 +1083,6 @@ function Library:CreateWindow(hubTitle)
                 dropObj = TabObj:AddDropdown(name, pList, nil, callback)
             end
 
-            -- Бесшовное обновление без авто-закрытия меню при входе/выходе игроков
             TrackConn(Players.PlayerAdded:Connect(function()
                 task.wait(0.2)
                 dropObj:Refresh(getPlayerNames())
@@ -1039,7 +1096,6 @@ function Library:CreateWindow(hubTitle)
             return dropObj
         end
 
-        -- 3. ВЫБОР ЦВЕТА (COLORPICKER С RGB СЛАЙДЕРАМИ)
         function TabObj:AddColorpicker(name, defaultColor, callback)
             defaultColor = defaultColor or Color3.fromRGB(255, 255, 255)
             local currColor = defaultColor
@@ -1053,7 +1109,6 @@ function Library:CreateWindow(hubTitle)
             local Label = Instance.new("TextLabel", Frame)
             Label.BackgroundTransparency, Label.Position, Label.Size, Label.Font, Label.Text, Label.TextSize, Label.TextXAlignment = 1, UDim2.new(0, 10, 0, 0), UDim2.new(0.5, 0, 0, 34), Enum.Font.GothamMedium, name, 12, Enum.TextXAlignment.Left
 
-            -- Кнопка-превью цвета
             local PreviewBtn = Instance.new("TextButton", Frame)
             PreviewBtn.Position, PreviewBtn.Size, PreviewBtn.AutoButtonColor, PreviewBtn.Text = UDim2.new(1, -64, 0, 6), UDim2.new(0, 58, 0, 22), false, ""
             PreviewBtn.BackgroundColor3 = currColor
@@ -1064,7 +1119,6 @@ function Library:CreateWindow(hubTitle)
             HexLabel.Size, HexLabel.BackgroundTransparency, HexLabel.Font, HexLabel.TextSize = UDim2.new(1, 0, 1, 0), 1, Enum.Font.GothamBold, 10
             HexLabel.Text = ColorToHex(currColor)
 
-            -- Выпадающий контейнер со слайдерами R, G, B
             local PickerContainer = Instance.new("Frame", Frame)
             PickerContainer.BackgroundTransparency, PickerContainer.Position, PickerContainer.Size = 1, UDim2.new(0, 10, 0, 38), UDim2.new(1, -20, 0, 100)
 
@@ -1081,7 +1135,6 @@ function Library:CreateWindow(hubTitle)
                 PreviewBtn.BackgroundColor3 = currColor
                 HexLabel.Text = ColorToHex(currColor)
 
-                -- Контрастность текста HEX (черный/белый)
                 local lum = (currColor.R * 0.299 + currColor.G * 0.587 + currColor.B * 0.114)
                 HexLabel.TextColor3 = lum > 0.5 and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
 
@@ -1165,128 +1218,6 @@ function Library:CreateWindow(hubTitle)
             }
         end
 
-        -- 4.1 ВСПЛЫВАЮЩИЕ ПОДСКАЗКИ (TOOLTIPS SYSTEM)
-        function Library:AddTooltip(element, text)
-            if not text or text == "" then return end
-
-            local tooltipFrame = Instance.new("Frame")
-            tooltipFrame.Name = "Tooltip"
-            tooltipFrame.BackgroundColor3 = Library.CurrentTheme.Card
-            tooltipFrame.Size = UDim2.new(0, 10, 0, 22)
-            tooltipFrame.AutomaticSize = Enum.AutomaticSize.X
-            tooltipFrame.Visible = false
-            tooltipFrame.ZIndex = 1000
-            Instance.new("UICorner", tooltipFrame).CornerRadius = UDim.new(0, 6)
-            local stroke = Instance.new("UIStroke", tooltipFrame)
-            stroke.Color = Library.CurrentTheme.Border
-
-            local label = Instance.new("TextLabel", tooltipFrame)
-            label.BackgroundTransparency = 1
-            label.Size = UDim2.new(1, 0, 1, 0)
-            label.Font = Enum.Font.GothamMedium
-            label.Text = "  " .. text .. "  "
-            label.TextColor3 = Library.CurrentTheme.Text
-            label.TextSize = 11
-            label.AutomaticSize = Enum.AutomaticSize.X
-
-            -- Находим главный ScreenGui для отрисовки подсказки поверху всего
-            local mainGui = element:FindFirstAncestorOfClass("ScreenGui")
-            if mainGui then tooltipFrame.Parent = mainGui end
-
-            local connHover, connMove, connLeave
-
-            connHover = element.MouseEnter:Connect(function()
-                tooltipFrame.Visible = true
-                local mousePos = UIS:GetMouseLocation()
-                tooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - 32)
-            end)
-
-            connMove = element.MouseMoved:Connect(function()
-                if tooltipFrame.Visible then
-                    local mousePos = UIS:GetMouseLocation()
-                    TS:Create(tooltipFrame, TweenInfo.new(0.05), { Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - 32) }):Play()
-                end
-            end)
-
-            connLeave = element.MouseLeave:Connect(function()
-                tooltipFrame.Visible = false
-            end)
-
-            Library.ThemeUpdaters[tooltipFrame] = function(theme, anim)
-                TweenColor(tooltipFrame, "BackgroundColor3", theme.Card, anim)
-                TweenColor(stroke, "Color", theme.Border, anim)
-                TweenColor(label, "TextColor3", theme.Text, anim)
-            end
-        end
-
-        -- ========================================================
-        -- 4.2 МОДАЛЬНОЕ ДИАЛОГОВОЕ ОКНО (LIBRARY PROMPT)
-        -- ========================================================
-        function Library:ShowPrompt(titleText, descText, buttons)
-            buttons = buttons or { { Text = "ОК", Primary = true, Callback = nil } }
-
-            local parentGui = CoreGui:FindFirstChild("RobloxGui") or LocalPlayer:WaitForChild("PlayerGui")
-            
-            -- Полупрозрачная подложка-затемнение
-            local Overlay = Instance.new("TextButton", parentGui)
-            Overlay.Name = "PromptOverlay"
-            Overlay.Size = UDim2.new(1, 0, 1, 0)
-            Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            Overlay.BackgroundTransparency = 1
-            Overlay.Text = ""
-            Overlay.AutoButtonColor = false
-            Overlay.ZIndex = 2000
-
-            local PromptFrame = Instance.new("Frame", Overlay)
-            PromptFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-            PromptFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-            PromptFrame.Size = UDim2.new(0, 0, 0, 0)
-            PromptFrame.BackgroundColor3 = Library.CurrentTheme.Card
-            PromptFrame.ClipsDescendants = true
-            Instance.new("UICorner", PromptFrame).CornerRadius = UDim.new(0, 10)
-            local PromptStroke = Instance.new("UIStroke", PromptFrame)
-            PromptStroke.Color = Library.CurrentTheme.Border
-
-            local PTitle = Instance.new("TextLabel", PromptFrame)
-            PTitle.Position, PTitle.Size, PTitle.Font, PTitle.Text, PTitle.TextSize, PTitle.TextColor3 = UDim2.new(0, 16, 0, 12), UDim2.new(1, -32, 0, 22), Enum.Font.GothamBold, titleText, 14, Library.CurrentTheme.Text
-            PTitle.TextXAlignment, PTitle.BackgroundTransparency = Enum.TextXAlignment.Left, 1
-
-            local PDesc = Instance.new("TextLabel", PromptFrame)
-            PDesc.Position, PDesc.Size, PDesc.Font, PDesc.Text, PDesc.TextSize, PDesc.TextColor3, PDesc.TextWrapped = UDim2.new(0, 16, 0, 36), UDim2.new(1, -32, 0, 42), Enum.Font.GothamMedium, descText, 12, Library.CurrentTheme.Off, true
-            PDesc.TextXAlignment, PDesc.TextYAlignment, PDesc.BackgroundTransparency = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, 1
-
-            local BtnHolder = Instance.new("Frame", PromptFrame)
-            BtnHolder.Position, BtnHolder.Size, BtnHolder.BackgroundTransparency = UDim2.new(0, 16, 1, -38), UDim2.new(1, -32, 0, 26), 1
-            local BtnLayout = Instance.new("UIListLayout", BtnHolder)
-            BtnLayout.FillDirection, BtnLayout.HorizontalAlignment, BtnLayout.Padding = Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right, UDim.new(0, 8)
-
-            local function closePrompt()
-                TS:Create(Overlay, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
-                local t = TS:Create(PromptFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = UDim2.new(0, 0, 0, 0) })
-                t:Play()
-                t.Completed:Connect(function() Overlay:Destroy() end)
-            end
-
-            for _, btnData in ipairs(buttons) do
-                local Btn = Instance.new("TextButton", BtnHolder)
-                Btn.Size = UDim2.new(0, 85, 1, 0)
-                Btn.Font, Btn.Text, Btn.TextSize = Enum.Font.GothamBold, btnData.Text or "OK", 11
-                Btn.BackgroundColor3 = btnData.Primary and Library.CurrentTheme.Accent or Library.CurrentTheme.Input
-                Btn.TextColor3 = Library.CurrentTheme.Text
-                Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
-
-                Btn.MouseButton1Click:Connect(function()
-                    closePrompt()
-                    if btnData.Callback then btnData.Callback() end
-                end)
-            end
-
-            -- Анимация появления
-            TS:Create(Overlay, TweenInfo.new(0.25), { BackgroundTransparency = 0.5 }):Play()
-            TS:Create(PromptFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 320, 0, 125) }):Play()
-        end
-
-        -- 1. СТАНДАРТНЫЙ ОДИНОЧНЫЙ КЕЙБИНД (FIXED CONNECTION)
         function TabObj:AddKeybind(name, defaultKey, callback, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -1330,7 +1261,6 @@ function Library:CreateWindow(hubTitle)
             end))
         end
 
-        -- 2. ЦИКЛИЧНЫЙ КЕЙБИНД ПРИ УДЕРЖАНИИ (FIXED CONNECTION)
         function TabObj:AddHoldKeybind(name, defaultKey, loopInterval, loopCallback, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -1393,7 +1323,6 @@ function Library:CreateWindow(hubTitle)
             end))
         end
 
-        -- 3. КЕЙБИНД "ЗАЖАЛ - СКРИПТ A / ОТПУСТИЛ - СКРИПТ B" (FIXED CONNECTION)
         function TabObj:AddPressReleaseKeybind(name, defaultKey, onPress, onRelease, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -1446,7 +1375,6 @@ function Library:CreateWindow(hubTitle)
             end))
         end
 
-        -- 4. КОМБИНИРОВАННЫЙ КЕЙБИНД (FIXED CONNECTION)
         function TabObj:AddHoldPressReleaseKeybind(name, defaultKey, loopInterval, onPress, holdLoop, onRelease, onChanged)
             local currentKey = defaultKey or Enum.KeyCode.E
             local binding = false
@@ -1573,16 +1501,15 @@ function Library:CreateWindow(hubTitle)
 
         SettingsTab:AddButton("Перезайти", function()
             local TeleportService = game:GetService("TeleportService")
-            local Players = game:GetService("Players")
             
             Library:Notify("REJOIN", "Перезаходим на сервер...", 3)
             
             if #Players:GetPlayers() <= 1 then
-                Players.LocalPlayer:Kick("\nRejoining...")
-                wait()
-                TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+                LocalPlayer:Kick("\nRejoining...")
+                task.wait(0.2)
+                TeleportService:Teleport(game.PlaceId, LocalPlayer)
             else
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
             end
         end)
 
