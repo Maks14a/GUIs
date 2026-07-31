@@ -158,5 +158,5 @@ Library:ShowPrompt("Внимание!", "Вы действительно хот�
 })
 
 --- [ Программная смена темы ]
--- Доступные темы: "Emerald", "Ruby", "Sapphire", "Amethyst", "Amber" Важно это не обезательно использовать у нас есть все это в Window:CreateSettingsTab()
+-- Доступные темы: "Emerald", "Ruby", "Sapphire", "Amethyst", "Amber"
 Window:SetTheme("Sapphire")
